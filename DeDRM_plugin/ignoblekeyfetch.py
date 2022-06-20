@@ -41,7 +41,7 @@ class SafeUnbuffered:
     def __init__(self, stream):
         self.stream = stream
         self.encoding = stream.encoding
-        if self.encoding == None:
+        if self.encoding is None:
             self.encoding = "utf-8"
     def write(self, data):
         if isinstance(data, str):
@@ -204,12 +204,12 @@ def gui_main():
             button.pack(side=tkinter.constants.RIGHT)
 
         def get_keypath(self):
-            keypath = tkinter.filedialog.asksaveasfilename(
-                parent=None, title="Select B&N ePub key file to produce",
+            if keypath := tkinter.filedialog.asksaveasfilename(
+                parent=None,
+                title="Select B&N ePub key file to produce",
                 defaultextension=".b64",
-                filetypes=[('base64-encoded files', '.b64'),
-                           ('All Files', '.*')])
-            if keypath:
+                filetypes=[('base64-encoded files', '.b64'), ('All Files', '.*')],
+            ):
                 keypath = os.path.normpath(keypath)
                 self.keypath.delete(0, tkinter.constants.END)
                 self.keypath.insert(0, keypath)

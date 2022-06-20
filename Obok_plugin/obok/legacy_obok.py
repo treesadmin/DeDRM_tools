@@ -18,9 +18,8 @@ class legacy_obok(object):
         return self._userkey
         
     def __bytearraytostring(self, bytearr):
-        wincheck = re.match('@ByteArray\\((.+)\\)', bytearr)
-        if wincheck:
-            return wincheck.group(1)
+        if wincheck := re.match('@ByteArray\\((.+)\\)', bytearr):
+            return wincheck[1]
         return bytearr
     
     def plist_to_dictionary(self, filename):
@@ -52,12 +51,10 @@ class legacy_obok(object):
                 bytearrays = cookies['Browser.cookies']
             for bytearr in bytearrays:
                 cookie = self.__bytearraytostring(bytearr)
-                wsuidcheck = re.match("^wsuid=([0-9a-f-]+)", cookie)
-                if(wsuidcheck):
-                    wsuid = wsuidcheck.group(1)
-                pwsdidcheck = re.match('^pwsdid=([0-9a-f-]+)', cookie)
-                if (pwsdidcheck):
-                    pwsdid = pwsdidcheck.group(1)
+                if wsuidcheck := re.match("^wsuid=([0-9a-f-]+)", cookie):
+                    wsuid = wsuidcheck[1]
+                if pwsdidcheck := re.match('^pwsdid=([0-9a-f-]+)', cookie):
+                    pwsdid = pwsdidcheck[1]
             if (wsuid == '' or pwsdid == ''):
                 return None
             preuserkey = string.join((pwsdid, wsuid), '')
@@ -65,7 +62,4 @@ class legacy_obok(object):
             return binascii.a2b_hex(userkey[32:])
         except KeyError:
             print ('No "cookies" key found in Kobo plist: no legacy user key found.')
-            return None
-        except:
-            print ('Error parsing Kobo plist: no legacy user key found.')
             return None

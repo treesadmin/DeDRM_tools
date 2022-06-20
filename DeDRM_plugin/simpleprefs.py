@@ -18,7 +18,7 @@ class SimplePrefs(object):
             [key, filename] = keyfilemap
             self.key2file[key] = filename
             self.file2key[filename] = key
-        self.target = target + 'Prefs'
+        self.target = f'{target}Prefs'
         if sys.platform.startswith('win'):
             import winreg
             regkey = winreg.OpenKey(winreg.HKEY_CURRENT_USER, "Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Shell Folders\\")
@@ -26,11 +26,11 @@ class SimplePrefs(object):
             prefdir = path + os.sep + self.target
         elif sys.platform.startswith('darwin'):
             home = os.getenv('HOME')
-            prefdir = os.path.join(home,'Library','Preferences','org.' + self.target)
+            prefdir = os.path.join(home, 'Library', 'Preferences', f'org.{self.target}')
         else:
             # linux and various flavors of unix
             home = os.getenv('HOME')
-            prefdir = os.path.join(home,'.' + self.target)
+            prefdir = os.path.join(home, f'.{self.target}')
         if not os.path.exists(prefdir):
             os.makedirs(prefdir)
         self.prefdir = prefdir
@@ -59,20 +59,19 @@ class SimplePrefs(object):
         if newprefs['dir'] != self.prefs['dir']:
             raise SimplePrefsError('Error: Attempt to Set Preferences in unspecified directory')
         for key in newprefs:
-            if key != 'dir':
-                if key in self.key2file:
-                    filename = self.key2file[key]
-                    filepath = os.path.join(self.prefdir,filename)
-                    data = newprefs[key]
-                    if data != None:
-                        data = str(data)
-                    if data == None or data == '':
-                        if os.path.exists(filepath):
-                            os.remove(filepath)
-                    else:
-                        try:
-                            file(filepath,'wb').write(data)
-                        except Exception as e:
-                            pass
+            if key != 'dir' and key in self.key2file:
+                filename = self.key2file[key]
+                filepath = os.path.join(self.prefdir,filename)
+                data = newprefs[key]
+                if data != None:
+                    data = str(data)
+                if data is None or data == '':
+                    if os.path.exists(filepath):
+                        os.remove(filepath)
+                else:
+                    try:
+                        file(filepath,'wb').write(data)
+                    except Exception as e:
+                        pass
         self.prefs = newprefs
         return

@@ -90,7 +90,10 @@ class Des(object):
         return self.__iv
     def setIV(self, IV):
         if not IV or len(IV) != self.block_size:
-            raise ValueError("Invalid Initial Value (IV), must be a multiple of " + str(self.block_size) + " bytes")
+            raise ValueError(
+                f"Invalid Initial Value (IV), must be a multiple of {str(self.block_size)} bytes"
+            )
+
         self.__iv = IV
     def getPadding(self):
         return self.__padding
@@ -99,35 +102,27 @@ class Des(object):
         result = [0] * l
         pos = 0
         for c in data:
-            i = 7
             ch = ord(c)
-            while i >= 0:
-                if ch & (1 << i) != 0:
-                    result[pos] = 1
-                else:
-                    result[pos] = 0
+            for i in range(7, -1, -1):
+                result[pos] = 1 if ch & (1 << i) != 0 else 0
                 pos += 1
-                i -= 1
         return result
     def __BitList_to_String(self, data):
         result = ''
-        pos = 0
         c = 0
-        while pos < len(data):
+        for pos in range(len(data)):
             c += data[pos] << (7 - (pos % 8))
             if (pos % 8) == 7:
                 result += chr(c)
                 c = 0
-            pos += 1
         return result
     def __permutate(self, table, block):
         return [block[x] for x in table]
     def __create_sub_keys(self):
         key = self.__permutate(Des.__pc1, self.__String_to_BitList(self.getKey()))
-        i = 0
         self.L = key[:28]
         self.R = key[28:]
-        while i < 16:
+        for i in range(16):
             j = 0
             while j < Des.__left_rotations[i]:
                 self.L.append(self.L[0])
@@ -136,7 +131,6 @@ class Des(object):
                 del self.R[0]
                 j += 1
             self.Kn[i] = self.__permutate(Des.__pc2, self.L + self.R)
-            i += 1
     def __des_crypt(self, block, crypt_type):
         block = self.__permutate(Des.__ip, block)
         self.L = block[:32]
@@ -147,16 +141,14 @@ class Des(object):
         else:
             iteration = 15
             iteration_adjustment = -1
-        i = 0
-        while i < 16:
+        for _ in range(16):
             tempR = self.R[:]
             self.R = self.__permutate(Des.__expansion_table, self.R)
             self.R = [x ^ y for x,y in zip(self.R, self.Kn[iteration])]
             B = [self.R[:6], self.R[6:12], self.R[12:18], self.R[18:24], self.R[24:30], self.R[30:36], self.R[36:42], self.R[42:]]
-            j = 0
             Bn = [0] * 32
             pos = 0
-            while j < 8:
+            for j in range(8):
                 m = (B[j][0] << 1) + B[j][5]
                 n = (B[j][1] << 3) + (B[j][2] << 2) + (B[j][3] << 1) + B[j][4]
                 v = Des.__sbox[j][(m << 4) + n]
@@ -165,11 +157,9 @@ class Des(object):
                 Bn[pos + 2] = (v & 2) >> 1
                 Bn[pos + 3] = v & 1
                 pos += 4
-                j += 1
             self.R = self.__permutate(Des.__p, Bn)
             self.R = [x ^ y for x, y in zip(self.R, self.L)]
             self.L = tempR
-            i += 1
             iteration += iteration_adjustment
         self.final = self.__permutate(Des.__fp, self.R + self.L)
         return self.final
@@ -178,9 +168,17 @@ class Des(object):
             return ''
         if len(data) % self.block_size != 0:
             if crypt_type == Des.DECRYPT: # Decryption must work on 8 byte blocks
-                raise ValueError("Invalid data length, data must be a multiple of " + str(self.block_size) + " bytes\n.")
+                raise ValueError(
+                    f"Invalid data length, data must be a multiple of {str(self.block_size)}"
+                    + " bytes\n."
+                )
+
             if not self.getPadding():
-                raise ValueError("Invalid data length, data must be a multiple of " + str(self.block_size) + " bytes\n. Try setting the optional padding character")
+                raise ValueError(
+                    f"Invalid data length, data must be a multiple of {str(self.block_size)}"
+                    + " bytes\n. Try setting the optional padding character"
+                )
+
             else:
                 data += (self.block_size - (len(data) % self.block_size)) * self.getPadding()
         if self.getMode() == CBC:

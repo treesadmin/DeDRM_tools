@@ -278,9 +278,7 @@ class ManageKeysDialog(QDialog):
         self.resize(self.sizeHint())
 
     def getwineprefix(self):
-        if self.wineprefix is not None:
-            return str(self.wp_lineedit.text()).strip()
-        return ""
+        return "" if self.wineprefix is None else str(self.wp_lineedit.text()).strip()
 
     def populate_list(self):
         if type(self.plugin_keys) == dict:
@@ -429,8 +427,14 @@ class ManageKeysDialog(QDialog):
         caption = "Save {0} File as...".format(self.key_type_name)
         filters = [("{0} Files".format(self.key_type_name), ["{0}".format(self.keyfile_ext)])]
         defaultname = "{0}.{1}".format(keyname, self.keyfile_ext)
-        filename = choose_save_file(self, unique_dlg_name,  caption, filters, all_files=False, initial_filename=defaultname)
-        if filename:
+        if filename := choose_save_file(
+            self,
+            unique_dlg_name,
+            caption,
+            filters,
+            all_files=False,
+            initial_filename=defaultname,
+        ):
             if self.binary_file:
                 with open(filename, 'wb') as fname:
                     fname.write(codecs.decode(self.plugin_keys[keyname],'hex'))
@@ -614,8 +618,8 @@ class AddBandNKeyDialog(QDialog):
             return error_dialog(None, "{0} {1}".format(PLUGIN_NAME, PLUGIN_VERSION), errmsg, show=True, show_copy_button=False)
         if len(self.key_value) == 0:
             self.retrieve_key()
-            if len(self.key_value) == 0:
-                return
+        if len(self.key_value) == 0:
+            return
         QDialog.accept(self)
 
 class AddEReaderDialog(QDialog):
@@ -723,7 +727,14 @@ class AddAdeptDialog(QDialog):
 
         self.button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
 
-        if len(self.default_key)>0:
+        if not self.default_key:
+            default_key_error = QLabel("The default encryption key for Adobe Digital Editions could not be found.", self)
+            default_key_error.setAlignment(Qt.AlignHCenter)
+            layout.addWidget(default_key_error)
+            # if no default, bot buttons do the same
+            self.button_box.accepted.connect(self.reject)
+
+        else:
             data_group_box = QGroupBox("", self)
             layout.addWidget(data_group_box)
             data_group_box_layout = QVBoxLayout()
@@ -737,13 +748,6 @@ class AddAdeptDialog(QDialog):
             key_group.addWidget(self.key_ledit)
 
             self.button_box.accepted.connect(self.accept)
-        else:
-            default_key_error = QLabel("The default encryption key for Adobe Digital Editions could not be found.", self)
-            default_key_error.setAlignment(Qt.AlignHCenter)
-            layout.addWidget(default_key_error)
-            # if no default, bot buttons do the same
-            self.button_box.accepted.connect(self.reject)
-
         self.button_box.rejected.connect(self.reject)
         layout.addWidget(self.button_box)
 
@@ -794,7 +798,15 @@ class AddKindleDialog(QDialog):
 
         self.button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
 
-        if len(self.default_key)>0:
+        if not self.default_key:
+            default_key_error = QLabel("The default encryption key for Kindle for Mac/PC could not be found.", self)
+            default_key_error.setAlignment(Qt.AlignHCenter)
+            layout.addWidget(default_key_error)
+
+            # if no default, both buttons do the same
+            self.button_box.accepted.connect(self.reject)
+
+        else:
             data_group_box = QGroupBox("", self)
             layout.addWidget(data_group_box)
             data_group_box_layout = QVBoxLayout()
@@ -808,14 +820,6 @@ class AddKindleDialog(QDialog):
             key_group.addWidget(self.key_ledit)
 
             self.button_box.accepted.connect(self.accept)
-        else:
-            default_key_error = QLabel("The default encryption key for Kindle for Mac/PC could not be found.", self)
-            default_key_error.setAlignment(Qt.AlignHCenter)
-            layout.addWidget(default_key_error)
-
-            # if no default, both buttons do the same
-            self.button_box.accepted.connect(self.reject)
-
         self.button_box.rejected.connect(self.reject)
         layout.addWidget(self.button_box)
 
@@ -938,7 +942,7 @@ class AddAndroidDialog(QDialog):
         return self.serials_from_file
 
     def get_android_file(self):
-        unique_dlg_name = PLUGIN_NAME + "Import Kindle for Android backup file" #takes care of automatically remembering last directory
+        unique_dlg_name = f"{PLUGIN_NAME}Import Kindle for Android backup file"
         caption = "Select Kindle for Android backup file to add"
         filters = [("Kindle for Android backup files", ['db','ab','xml'])]
         files = choose_files(self, unique_dlg_name, caption, filters, all_files=False)
@@ -1007,7 +1011,7 @@ class AddPIDDialog(QDialog):
         if len(self.key_name) == 0 or self.key_name.isspace():
             errmsg = "Please enter a Mobipocket PID or click Cancel in the dialog."
             return error_dialog(None, "{0} {1}".format(PLUGIN_NAME, PLUGIN_VERSION), errmsg, show=True, show_copy_button=False)
-        if len(self.key_name) != 8 and len(self.key_name) != 10:
+        if len(self.key_name) not in [8, 10]:
             errmsg = "Mobipocket PIDs must be 8 or 10 characters long. This is {0:d} characters long.".format(len(self.key_name))
             return error_dialog(None, "{0} {1}".format(PLUGIN_NAME, PLUGIN_VERSION), errmsg, show=True, show_copy_button=False)
         QDialog.accept(self)

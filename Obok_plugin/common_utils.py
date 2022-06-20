@@ -41,7 +41,6 @@ try:
     load_translations()
 except NameError:
     debug_print("obok::common_utils.py - exception when loading translations")
-    pass # load_translations() added in calibre 1.9
 
 def set_plugin_icon_resources(name, resources):
     '''
@@ -60,11 +59,7 @@ def get_icon(icon_name):
     '''
     if icon_name:
         pixmap = get_pixmap(icon_name)
-        if pixmap is None:
-            # Look in Calibre's cache for the icon
-            return QIcon(I(icon_name))
-        else:
-            return QIcon(pixmap)
+        return QIcon(I(icon_name)) if pixmap is None else QIcon(pixmap)
     return QIcon()
 
 
@@ -122,10 +117,7 @@ def create_menu_item(ia, parent_menu, menu_text, image=None, tooltip=None,
     or register their menus only once. Use create_menu_action_unique for all else.
     '''
     if shortcut is not None:
-        if len(shortcut) == 0:
-            shortcut = ()
-        else:
-            shortcut = _(shortcut)
+        shortcut = () if len(shortcut) == 0 else _(shortcut)
     ac = ia.create_action(spec=(menu_text, None, tooltip, shortcut),
         attr=menu_text)
     if image:
@@ -153,25 +145,23 @@ def create_menu_action_unique(ia, parent_menu, menu_text, image=None, tooltip=No
     kb = ia.gui.keyboard
     if unique_name is None:
         unique_name = menu_text
-    if not shortcut == False:
+    if shortcut != False:
         full_unique_name = menu_action_unique_name(ia, unique_name)
         if full_unique_name in kb.shortcuts:
             shortcut = False
-        else:
-            if shortcut is not None and not shortcut == False:
-                if len(shortcut) == 0:
-                    shortcut = None
-                else:
-                    shortcut = _(shortcut)
-
+        elif shortcut is not None and shortcut != False:
+            shortcut = None if len(shortcut) == 0 else _(shortcut)
     if shortcut_name is None:
         shortcut_name = menu_text.replace('&','')
 
     ac = ia.create_menu_action(parent_menu, unique_name, menu_text, icon=None, shortcut=shortcut,
         description=tooltip, triggered=triggered, shortcut_name=shortcut_name)
-    if shortcut == False and not orig_shortcut == False:
-        if ac.calibre_shortcut_unique_name in ia.gui.keyboard.shortcuts:
-            kb.replace_action(ac.calibre_shortcut_unique_name, ac)
+    if (
+        shortcut == False
+        and orig_shortcut != False
+        and ac.calibre_shortcut_unique_name in ia.gui.keyboard.shortcuts
+    ):
+        kb.replace_action(ac.calibre_shortcut_unique_name, ac)
     if image:
         ac.setIcon(get_icon(image))
     if is_checked is not None:
@@ -286,10 +276,10 @@ class DateTableWidgetItem(QTableWidgetItem):
         if is_read_only:
             QTableWidgetItem.__init__(self, format_date(date_read, fmt), QTableWidgetItem.UserType)
             self.setFlags(Qt.ItemIsSelectable|Qt.ItemIsEnabled)
-            self.setData(Qt.DisplayRole, QDateTime(date_read))
         else:
             QTableWidgetItem.__init__(self, '', QTableWidgetItem.UserType)
-            self.setData(Qt.DisplayRole, QDateTime(date_read))
+
+        self.setData(Qt.DisplayRole, QDateTime(date_read))
 
 from calibre.gui2.library.delegates import DateDelegate as _DateDelegate
 class DateDelegate(_DateDelegate):
@@ -320,10 +310,7 @@ class DateDelegate(_DateDelegate):
     def setEditorData(self, editor, index):
         val = index.model().data(index, Qt.DisplayRole).toDateTime()
         if val is None or val == UNDEFINED_QDATETIME:
-            if self.default_to_today:
-                val = self.default_date
-            else:
-                val = UNDEFINED_QDATETIME
+            val = self.default_date if self.default_to_today else UNDEFINED_QDATETIME
         editor.setDateTime(val)
 
     def setModelData(self, editor, model, index):
@@ -350,11 +337,10 @@ class CheckableTableWidgetItem(QTableWidgetItem):
             self.setFlags(self.flags() | Qt.ItemIsTristate)
         if checked:
             self.setCheckState(Qt.Checked)
+        elif is_tristate and checked is None:
+            self.setCheckState(Qt.PartiallyChecked)
         else:
-            if is_tristate and checked is None:
-                self.setCheckState(Qt.PartiallyChecked)
-            else:
-                self.setCheckState(Qt.Unchecked)
+            self.setCheckState(Qt.Unchecked)
 
     def get_boolean_value(self):
         '''
@@ -464,7 +450,7 @@ class CustomColumnComboBox(QComboBox):
                 selected_idx = idx
         for key in sorted(custom_columns.keys()):
             self.column_names.append(key)
-            self.addItem('%s (%s)'%(key, custom_columns[key]['name']))
+            self.addItem(f"{key} ({custom_columns[key]['name']})")
             if key == selected_column:
                 selected_idx = len(self.column_names) - 1
         self.setCurrentIndex(selected_idx)
@@ -551,9 +537,8 @@ def convert_kobo_date(kobo_date):
 
     try:
         converted_date = datetime.strptime(kobo_date, "%Y-%m-%dT%H:%M:%S.%f")
-        converted_date = datetime.strptime(kobo_date[0:19], "%Y-%m-%dT%H:%M:%S")
+        converted_date = datetime.strptime(kobo_date[:19], "%Y-%m-%dT%H:%M:%S")
         converted_date = converted_date.replace(tzinfo=utc_tz)
-#            debug_print("convert_kobo_date - '%Y-%m-%dT%H:%M:%S.%f' - kobo_date={0}'".format(kobo_date))
     except:
         try:
             converted_date = datetime.strptime(kobo_date, "%Y-%m-%dT%H:%M:%S%+00:00")

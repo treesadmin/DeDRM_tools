@@ -36,7 +36,7 @@ class SafeUnbuffered:
     def __init__(self, stream):
         self.stream = stream
         self.encoding = stream.encoding
-        if self.encoding == None:
+        if self.encoding is None:
             self.encoding = "utf-8"
     def write(self, data):
         if isinstance(data,unicode):
@@ -86,7 +86,7 @@ def unicode_argv():
         return [u"ignoblekey.py"]
     else:
         argvencoding = sys.stdin.encoding
-        if argvencoding == None:
+        if argvencoding is None:
             argvencoding = "utf-8"
         return [arg if (type(arg) == unicode) else unicode(arg,argvencoding) for arg in sys.argv]
 
@@ -156,25 +156,29 @@ def getNookLogFiles():
     else:
         home = os.getenv('HOME')
         # check for BNClientLog.txt in various locations
-        testpath = home + '/Library/Application Support/Barnes & Noble/DesktopReader/logs/BNClientLog.txt'
+        testpath = f'{home}/Library/Application Support/Barnes & Noble/DesktopReader/logs/BNClientLog.txt'
+
         if os.path.isfile(testpath):
             logFiles.append(testpath)
-            print('Found nookStudy log file: ' + testpath)
+            print(f'Found nookStudy log file: {testpath}')
             found = True
-        testpath = home + '/Library/Application Support/Barnes & Noble/DesktopReader/indices/BNClientLog.txt'
+        testpath = f'{home}/Library/Application Support/Barnes & Noble/DesktopReader/indices/BNClientLog.txt'
+
         if os.path.isfile(testpath):
             logFiles.append(testpath)
-            print('Found nookStudy log file: ' + testpath)
+            print(f'Found nookStudy log file: {testpath}')
             found = True
-        testpath = home + '/Library/Application Support/Barnes & Noble/BNDesktopReader/logs/BNClientLog.txt'
+        testpath = f'{home}/Library/Application Support/Barnes & Noble/BNDesktopReader/logs/BNClientLog.txt'
+
         if os.path.isfile(testpath):
             logFiles.append(testpath)
-            print('Found nookStudy log file: ' + testpath)
+            print(f'Found nookStudy log file: {testpath}')
             found = True
-        testpath = home + '/Library/Application Support/Barnes & Noble/BNDesktopReader/indices/BNClientLog.txt'
+        testpath = f'{home}/Library/Application Support/Barnes & Noble/BNDesktopReader/indices/BNClientLog.txt'
+
         if os.path.isfile(testpath):
             logFiles.append(testpath)
-            print('Found nookStudy log file: ' + testpath)
+            print(f'Found nookStudy log file: {testpath}')
             found = True
 
     if not found:
@@ -187,8 +191,7 @@ def getKeysFromLog(kLogFile):
     keys = []
     regex = re.compile("ccHash: \"(.{28})\"");
     for line in open(kLogFile):
-        for m in regex.findall(line):
-            keys.append(m)
+        keys.extend(iter(regex.findall(line)))
     return keys
 
 # interface for calibre plugin

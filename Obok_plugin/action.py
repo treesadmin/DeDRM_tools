@@ -42,7 +42,6 @@ try:
     load_translations()
 except NameError:
     debug_print("obok::action_err.py - exception when loading translations")
-    pass # load_translations() added in calibre 1.9
 
 class InterfacePluginAction(InterfaceAction):
     name = PLUGIN_NAME
@@ -78,14 +77,13 @@ class InterfacePluginAction(InterfaceAction):
         self.db = self.gui.current_db.new_api
         self.current_idx = self.gui.library_view.currentIndex()
 
-        print ('Running {}'.format(PLUGIN_NAME + ' v' + PLUGIN_VERSION))
+        print(f'Running {PLUGIN_NAME} v{PLUGIN_VERSION}')
         #
         # search for connected device in case serials are saved
         tmpserials = cfg['kobo_serials']
         device_path = None
         try:
-            device = self.parent().device_manager.connected_device
-            if (device):
+            if device := self.parent().device_manager.connected_device:
                 device_path = device._main_prefix
                 debug_print("get_device_settings - device_path=", device_path)
             else:
@@ -95,7 +93,7 @@ class InterfacePluginAction(InterfaceAction):
 
         # Get the Kobo Library object (obok v3.01)
         self.library = KoboLibrary(tmpserials, device_path, cfg['kobo_directory'])
-        debug_print ("got kobodir %s" % self.library.kobodir)
+        debug_print(f"got kobodir {self.library.kobodir}")
         if (self.library.kobodir == ''):
             # linux and no device connected, but could be extended
             # to the case where on Windows/Mac the prog is not installed
@@ -143,7 +141,12 @@ class InterfacePluginAction(InterfaceAction):
                                status_msg_type='Kobo books', action_type=('Decrypting', 'Decryption'))
             # Canceled the decryption process; clean up and exit.
             if d.wasCanceled():
-                print (_('{} - Decryption canceled by user.').format(PLUGIN_NAME + ' v' + PLUGIN_VERSION))
+                print(
+                    _('{} - Decryption canceled by user.').format(
+                        f'{PLUGIN_NAME} v{PLUGIN_VERSION}'
+                    )
+                )
+
                 self.library.close()
                 remove_dir(self.tdir)
                 return
@@ -163,28 +166,54 @@ class InterfacePluginAction(InterfaceAction):
             # Canceled the "add new books to calibre" process;
             # show the results of what got added before cancellation.
             if d.wasCanceled():
-                print (_('{} - "Add books" canceled by user.').format(PLUGIN_NAME + ' v' + PLUGIN_VERSION))
+                print(
+                    _('{} - "Add books" canceled by user.').format(
+                        f'{PLUGIN_NAME} v{PLUGIN_VERSION}'
+                    )
+                )
+
                 self.add_books_cancelled = True
-                print (_('{} - wrapping up results.').format(PLUGIN_NAME + ' v' + PLUGIN_VERSION))
+                print(
+                    _('{} - wrapping up results.').format(
+                        f'{PLUGIN_NAME} v{PLUGIN_VERSION}'
+                    )
+                )
+
                 self.wrap_up_results()
                 remove_dir(self.tdir)
                 return
         # If books couldn't be added because of duplicate entries in calibre, ask
         # if we should try to add the decrypted epubs to existing calibre library entries.
         if len(self.duplicate_book_list):
-            if cfg['finding_homes_for_formats'] == 'Always':
+            if (
+                cfg['finding_homes_for_formats'] != 'Always'
+                and cfg['finding_homes_for_formats'] != 'Never'
+                and self.ask_about_inserting_epubs()
+                or cfg['finding_homes_for_formats'] == 'Always'
+            ):
+                # Find homes for the epub decrypted formats in existing calibre library entries.
                 self.process_epub_formats()
-            elif cfg['finding_homes_for_formats'] == 'Never':
-                self.no_home_for_book.extend([entry[0] for entry in self.duplicate_book_list])
-            else:
-                if self.ask_about_inserting_epubs():
-                    # Find homes for the epub decrypted formats in existing calibre library entries.
-                    self.process_epub_formats()
-                else:
-                    print (_('{} - User opted not to try to insert EPUB formats').format(PLUGIN_NAME + ' v' + PLUGIN_VERSION))
-                    self.no_home_for_book.extend([entry[0] for entry in self.duplicate_book_list])
+            elif (
+                cfg['finding_homes_for_formats'] != 'Always'
+                and cfg['finding_homes_for_formats'] != 'Never'
+                and not self.ask_about_inserting_epubs()
+            ):
+                print(
+                    _('{} - User opted not to try to insert EPUB formats').format(
+                        f'{PLUGIN_NAME} v{PLUGIN_VERSION}'
+                    )
+                )
 
-        print (_('{} - wrapping up results.').format(PLUGIN_NAME + ' v' + PLUGIN_VERSION))
+                self.no_home_for_book.extend([entry[0] for entry in self.duplicate_book_list])
+
+            else:
+                self.no_home_for_book.extend([entry[0] for entry in self.duplicate_book_list])
+        print(
+            _('{} - wrapping up results.').format(
+                f'{PLUGIN_NAME} v{PLUGIN_VERSION}'
+            )
+        )
+
         self.wrap_up_results()
         remove_dir(self.tdir)
         return
@@ -216,7 +245,12 @@ class InterfacePluginAction(InterfaceAction):
 
         :param book: A KoboBook object that is to be decrypted.
         '''
-        print (_('{0} - Decrypting {1}').format(PLUGIN_NAME + ' v' + PLUGIN_VERSION, book.title))
+        print(
+            _('{0} - Decrypting {1}').format(
+                f'{PLUGIN_NAME} v{PLUGIN_VERSION}', book.title
+            )
+        )
+
         decrypted = self.decryptBook(book)
         if decrypted['success']:
             # Build a list of calibre "book maps" for calibre's add_book function.
@@ -225,7 +259,12 @@ class InterfacePluginAction(InterfaceAction):
             self.books_to_add.append((mi, bookmap))
         else:
             # Book is probably still encrypted.
-            print (_('{0} - Couldn\'t decrypt {1}').format(PLUGIN_NAME + ' v' + PLUGIN_VERSION, book.title))
+            print(
+                _('{0} - Couldn\'t decrypt {1}').format(
+                    f'{PLUGIN_NAME} v{PLUGIN_VERSION}', book.title
+                )
+            )
+
             self.decryption_errors.append((book.title, _('decryption errors')))
             return False
         return True
@@ -241,12 +280,23 @@ class InterfacePluginAction(InterfaceAction):
         if len(added[0]):
             # Record the id(s) that got added
             for id in added[0]:
-                print (_('{0} - Added {1}').format(PLUGIN_NAME + ' v' + PLUGIN_VERSION, books_to_add[0][0].title))
+                print(
+                    _('{0} - Added {1}').format(
+                        f'{PLUGIN_NAME} v{PLUGIN_VERSION}',
+                        books_to_add[0][0].title,
+                    )
+                )
+
                 self.ids_of_new_books.append((id, books_to_add[0][0]))
         if len(added[1]):
             # Build a list of details about the books that didn't get added because duplicate were detected.
             for mi, map in added[1]:
-                print (_('{0} - {1} already exists. Will try to add format later.').format(PLUGIN_NAME + ' v' + PLUGIN_VERSION, mi.title))
+                print(
+                    _(
+                        '{0} - {1} already exists. Will try to add format later.'
+                    ).format(f'{PLUGIN_NAME} v{PLUGIN_VERSION}', mi.title)
+                )
+
                 self.duplicate_book_list.append((mi, map['EPUB'], _('duplicate detected')))
             return False
         return True
@@ -261,10 +311,20 @@ class InterfacePluginAction(InterfaceAction):
         '''
         if self.db.add_format(book_id, 'EPUB', path, replace=False, run_hooks=False):
             self.successful_format_adds.append((book_id, mi))
-            print (_('{0} - Successfully added EPUB format to existing {1}').format(PLUGIN_NAME + ' v' + PLUGIN_VERSION, mi.title))
+            print(
+                _('{0} - Successfully added EPUB format to existing {1}').format(
+                    f'{PLUGIN_NAME} v{PLUGIN_VERSION}', mi.title
+                )
+            )
+
             return True
         # we really shouldn't get here.
-        print (_('{0} - Error adding EPUB format to existing {1}. This really shouldn\'t happen.').format(PLUGIN_NAME + ' v' + PLUGIN_VERSION, mi.title))
+        print(
+            _(
+                '{0} - Error adding EPUB format to existing {1}. This really shouldn\'t happen.'
+            ).format(f'{PLUGIN_NAME} v{PLUGIN_VERSION}', mi.title)
+        )
+
         self.no_home_for_book.append(mi)
         return False
 
@@ -287,17 +347,22 @@ class InterfacePluginAction(InterfaceAction):
         if self.formats_to_add:
             d = AddEpubFormatsProgressDialog(self.gui, self.formats_to_add, self.add_epub_format)
             if d.wasCanceled():
-                print (_('{} - "Insert formats" canceled by user.').format(PLUGIN_NAME + ' v' + PLUGIN_VERSION))
+                print(
+                    _('{} - "Insert formats" canceled by user.').format(
+                        f'{PLUGIN_NAME} v{PLUGIN_VERSION}'
+                    )
+                )
+
                 self.add_formats_cancelled = True
                 return
-            #return
+                #return
         return
 
     def wrap_up_results(self):
         '''
         Present the results
         '''
-        caption = PLUGIN_NAME + ' v' + PLUGIN_VERSION
+        caption = f'{PLUGIN_NAME} v{PLUGIN_VERSION}'
         # Refresh the gui and highlight new entries/modified entries.
         if len(self.ids_of_new_books) or len(self.successful_format_adds):
             self.refresh_gui_lib()
@@ -315,7 +380,7 @@ class InterfacePluginAction(InterfaceAction):
         '''
         ''' Terisa: Improve the message
         '''
-        caption = PLUGIN_NAME + ' v' + PLUGIN_VERSION
+        caption = f'{PLUGIN_NAME} v{PLUGIN_VERSION}'
         plural = format_plural(len(self.ids_of_new_books))
         det_msg = ''
         if self.count > 1:
@@ -337,12 +402,7 @@ class InterfacePluginAction(InterfaceAction):
 
         :param ids: List of calibre IDs that might serve as a home.
         '''
-        for id in ids:
-            # Find the first entry that matches the incoming book that doesn't have an EPUB format.
-            if not self.db.has_format(id, 'EPUB'):
-                return id
-                break
-        return None
+        return next((id for id in ids if not self.db.has_format(id, 'EPUB')), None)
 
     def refresh_gui_lib(self):
         '''
@@ -367,10 +427,7 @@ class InterfacePluginAction(InterfaceAction):
 
         :param book: obok file object
         '''
-        result = {}
-        result['success'] = False
-        result['fileobj'] = None
-
+        result = {'success': False, 'fileobj': None}
         zin = zipfile.ZipFile(book.filename, 'r')
         #print ('Kobo library filename: {0}'.format(book.filename))
         for userkey in self.userkeys:
@@ -428,71 +485,69 @@ class InterfacePluginAction(InterfaceAction):
                 # Single book ... don't get fancy.
                 title = self.ids_of_new_books[0][1].title if self.ids_of_new_books else self.successful_format_adds[0][1].title
                 msg = _('<p>{0} successfully added.').format(title)
-            return (msg, log)
-        else:
-            if self.count != 1:
-                msg = _('<p>Not all selected Kobo books made it into calibre.<br /><br />View report for details.')
-                log += _('<p><b>Total attempted:</b> {}</p>\n').format(self.count)
-                log += _('<p><b>Decryption errors:</b> {}</p>\n').format(len(self.decryption_errors))
-                if self.decryption_errors:
-                    log += '<ul>\n'
-                    for title, reason in self.decryption_errors:
-                        log += '<li>{}</li>\n'.format(title)
-                    log += '</ul>\n'
-                log += _('<p><b>New Books created:</b> {}</p>\n').format(len(self.ids_of_new_books))
-                if self.ids_of_new_books:
-                    log += '<ul>\n'
-                    for id, mi in self.ids_of_new_books:
-                        log += '<li>{}</li>\n'.format(mi.title)
-                    log += '</ul>\n'
-                if self.add_books_cancelled:
-                    log += _('<p><b>Duplicates that weren\'t added:</b> {}</p>\n').format(len(self.duplicate_book_list))
-                    if self.duplicate_book_list:
-                        log += '<ul>\n'
-                        for book in self.duplicate_book_list:
-                            log += '<li>{}</li>\n'.format(book[0].title)
-                        log += '</ul>\n'
-                    cancelled_count = self.count - (len(self.decryption_errors) + len(self.ids_of_new_books) + len(self.duplicate_book_list))
-                    if cancelled_count > 0:
-                        log += _('<p><b>Book imports cancelled by user:</b> {}</p>\n').format(cancelled_count)
-                    return (msg, log)
-                log += _('<p><b>New EPUB formats inserted in existing calibre books:</b> {0}</p>\n').format(len(self.successful_format_adds))
-                if self.successful_format_adds:
-                    log += '<ul>\n'
-                    for id, mi in self.successful_format_adds:
-                        log += '<li>{}</li>\n'.format(mi.title)
-                    log += '</ul>\n'
-                log += _('<p><b>EPUB formats NOT inserted into existing calibre books:</b> {}<br />\n').format(len(self.no_home_for_book))
-                log += _('(Either because the user <i>chose</i> not to insert them, or because all duplicates already had an EPUB format)')
-                if self.no_home_for_book:
-                    log += '<ul>\n'
-                    for mi in self.no_home_for_book:
-                        log += '<li>{}</li>\n'.format(mi.title)
-                    log += '</ul>\n'
-                if self.add_formats_cancelled:
-                    cancelled_count = self.count - (len(self.decryption_errors) + len(self.ids_of_new_books) + len(self.successful_format_adds) + len(self.no_home_for_book))
-                    if cancelled_count > 0:
-                        log += _('<p><b>Format imports cancelled by user:</b> {}</p>\n').format(cancelled_count)
-                return (msg, log)
-            else:
+        elif self.count == 1:
 
-                # Single book ... don't get fancy.
-                if self.ids_of_new_books:
-                    title = self.ids_of_new_books[0][1].title
-                elif self.successful_format_adds:
-                    title = self.successful_format_adds[0][1].title
-                elif self.no_home_for_book:
-                    title = self.no_home_for_book[0].title
-                elif self.decryption_errors:
-                    title = self.decryption_errors[0][0]
-                else:
-                    title = _('Unknown Book Title')
-                if self.decryption_errors:
-                    reason = _('it couldn\'t be decrypted.')
-                elif self.no_home_for_book:
-                    reason = _('user CHOSE not to insert the new EPUB format, or all existing calibre entries HAD an EPUB format already.')
-                else:
-                    reason = _('of unknown reasons. Gosh I\'m embarrassed!')
-                msg = _('<p>{0} not added because {1}').format(title, reason)
+            # Single book ... don't get fancy.
+            if self.ids_of_new_books:
+                title = self.ids_of_new_books[0][1].title
+            elif self.successful_format_adds:
+                title = self.successful_format_adds[0][1].title
+            elif self.no_home_for_book:
+                title = self.no_home_for_book[0].title
+            elif self.decryption_errors:
+                title = self.decryption_errors[0][0]
+            else:
+                title = _('Unknown Book Title')
+            if self.decryption_errors:
+                reason = _('it couldn\'t be decrypted.')
+            elif self.no_home_for_book:
+                reason = _('user CHOSE not to insert the new EPUB format, or all existing calibre entries HAD an EPUB format already.')
+            else:
+                reason = _('of unknown reasons. Gosh I\'m embarrassed!')
+            msg = _('<p>{0} not added because {1}').format(title, reason)
+
+        else:
+            msg = _('<p>Not all selected Kobo books made it into calibre.<br /><br />View report for details.')
+            log += _('<p><b>Total attempted:</b> {}</p>\n').format(self.count)
+            log += _('<p><b>Decryption errors:</b> {}</p>\n').format(len(self.decryption_errors))
+            if self.decryption_errors:
+                log += '<ul>\n'
+                for title, reason in self.decryption_errors:
+                    log += f'<li>{title}</li>\n'
+                log += '</ul>\n'
+            log += _('<p><b>New Books created:</b> {}</p>\n').format(len(self.ids_of_new_books))
+            if self.ids_of_new_books:
+                log += '<ul>\n'
+                for id, mi in self.ids_of_new_books:
+                    log += f'<li>{mi.title}</li>\n'
+                log += '</ul>\n'
+            if self.add_books_cancelled:
+                log += _('<p><b>Duplicates that weren\'t added:</b> {}</p>\n').format(len(self.duplicate_book_list))
+                if self.duplicate_book_list:
+                    log += '<ul>\n'
+                    for book in self.duplicate_book_list:
+                        log += f'<li>{book[0].title}</li>\n'
+                    log += '</ul>\n'
+                cancelled_count = self.count - (len(self.decryption_errors) + len(self.ids_of_new_books) + len(self.duplicate_book_list))
+                if cancelled_count > 0:
+                    log += _('<p><b>Book imports cancelled by user:</b> {}</p>\n').format(cancelled_count)
                 return (msg, log)
+            log += _('<p><b>New EPUB formats inserted in existing calibre books:</b> {0}</p>\n').format(len(self.successful_format_adds))
+            if self.successful_format_adds:
+                log += '<ul>\n'
+                for id, mi in self.successful_format_adds:
+                    log += f'<li>{mi.title}</li>\n'
+                log += '</ul>\n'
+            log += _('<p><b>EPUB formats NOT inserted into existing calibre books:</b> {}<br />\n').format(len(self.no_home_for_book))
+            log += _('(Either because the user <i>chose</i> not to insert them, or because all duplicates already had an EPUB format)')
+            if self.no_home_for_book:
+                log += '<ul>\n'
+                for mi in self.no_home_for_book:
+                    log += f'<li>{mi.title}</li>\n'
+                log += '</ul>\n'
+            if self.add_formats_cancelled:
+                cancelled_count = self.count - (len(self.decryption_errors) + len(self.ids_of_new_books) + len(self.successful_format_adds) + len(self.no_home_for_book))
+                if cancelled_count > 0:
+                    log += _('<p><b>Format imports cancelled by user:</b> {}</p>\n').format(cancelled_count)
+        return (msg, log)
 

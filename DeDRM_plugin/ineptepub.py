@@ -55,7 +55,7 @@ class SafeUnbuffered:
     def __init__(self, stream):
         self.stream = stream
         self.encoding = stream.encoding
-        if self.encoding == None:
+        if self.encoding is None:
             self.encoding = "utf-8"
     def write(self, data):
         if isinstance(data, str):
@@ -182,9 +182,8 @@ def _load_crypto_libcrypto():
     class AES(object):
         def __init__(self, userkey):
             self._blocksize = len(userkey)
-            if (self._blocksize != 16) and (self._blocksize != 24) and (self._blocksize != 32) :
+            if self._blocksize not in [16, 24, 32]:
                 raise ADEPTError('AES improper key used')
-                return
             key = self._key = AES_KEY()
             rv = AES_set_decrypt_key(userkey, len(userkey) * 8, key)
             if rv < 0:
@@ -219,7 +218,7 @@ def _load_crypto_pycrypto():
                 if self.index + length > len(self.bytes):
                     raise ASN1Error("Error decoding ASN.1")
                 x = 0
-                for count in range(length):
+                for _ in range(length):
                     x <<= 8
                     x |= self.bytes[self.index]
                     self.index += 1
@@ -278,7 +277,7 @@ def _load_crypto_pycrypto():
 
         def getChild(self, which):
             p = self.Parser(self.value)
-            for x in range(which+1):
+            for _ in range(which+1):
                 markIndex = p.index
                 p.get(1)
                 length = self._getASN1Length(p)
@@ -289,9 +288,8 @@ def _load_crypto_pycrypto():
             firstLength = p.get(1)
             if firstLength<=127:
                 return firstLength
-            else:
-                lengthLength = firstLength & 0x7F
-                return p.get(lengthLength)
+            lengthLength = firstLength & 0x7F
+            return p.get(lengthLength)
 
     class AES(object):
         def __init__(self, key):
@@ -302,7 +300,7 @@ def _load_crypto_pycrypto():
 
     class RSA(object):
         def __init__(self, der):
-            key = ASN1Parser([x for x in der])
+            key = ASN1Parser(list(der))
             key = [key.getChild(x).value for x in range(1, 4)]
             key = [self.bytesToNumber(v) for v in key]
             self._rsa = _RSA.construct(key)
@@ -343,8 +341,7 @@ class Decryptor(object):
         self._aes = AES(bookkey)
         encryption = etree.fromstring(encryption)
         self._encrypted = encrypted = set()
-        expr = './%s/%s/%s' % (enc('EncryptedData'), enc('CipherData'),
-                               enc('CipherReference'))
+        expr = f"./{enc('EncryptedData')}/{enc('CipherData')}/{enc('CipherReference')}"
         for elem in encryption.findall(expr):
             path = elem.get('URI', None)
             if path is not None:
@@ -355,8 +352,7 @@ class Decryptor(object):
         dc = zlib.decompressobj(-15)
         try:
             decompressed_bytes = dc.decompress(bytes)
-            ex = dc.decompress(b'Z') + dc.flush()
-            if ex:
+            if ex := dc.decompress(b'Z') + dc.flush():
                 decompressed_bytes = decompressed_bytes + ex
         except:
             # possibly not compressed by zip - just return bytes
@@ -366,10 +362,7 @@ class Decryptor(object):
     def decrypt(self, path, data):
         if path.encode('utf-8') in self._encrypted:
             data = self._aes.decrypt(data)[16:]
-            if type(data[-1]) != int:
-                place = ord(data[-1])
-            else:
-                place = data[-1]
+            place = ord(data[-1]) if type(data[-1]) != int else data[-1]
             data = data[:-place]
             data = self.decompress(data)
         return data
@@ -384,7 +377,7 @@ def adeptBook(inpath):
         try:
             rights = etree.fromstring(inf.read('META-INF/rights.xml'))
             adept = lambda tag: '{%s}%s' % (NSMAP['adept'], tag)
-            expr = './/%s' % (adept('encryptedKey'),)
+            expr = f".//{adept('encryptedKey')}"
             bookkey = ''.join(rights.findtext(expr))
             if len(bookkey) == 172:
                 return True
@@ -408,7 +401,7 @@ def decryptBook(userkey, inpath, outpath):
         try:
             rights = etree.fromstring(inf.read('META-INF/rights.xml'))
             adept = lambda tag: '{%s}%s' % (NSMAP['adept'], tag)
-            expr = './/%s' % (adept('encryptedKey'),)
+            expr = f".//{adept('encryptedKey')}"
             bookkey = ''.join(rights.findtext(expr))
             if len(bookkey) != 172:
                 print("{0:s} is not a secure Adobe Adept ePub.".format(os.path.basename(inpath)))
@@ -416,7 +409,7 @@ def decryptBook(userkey, inpath, outpath):
             bookkey = rsa.decrypt(codecs.decode(bookkey.encode('ascii'), 'base64'))
             # Padded as per RSAES-PKCS1-v1_5
             if len(bookkey) > 16:
-                if bookkey[-17] == '\x00' or bookkey[-17] == 0:
+                if bookkey[-17] in ['\x00', 0]:
                     bookkey = bookkey[-16:]
                 else:
                     print("Could not decrypt {0:s}. Wrong key".format(os.path.basename(inpath)))
@@ -527,32 +520,39 @@ def gui_main():
             button.pack(side=tkinter.constants.RIGHT)
 
         def get_keypath(self):
-            keypath = tkinter.filedialog.askopenfilename(
-                parent=None, title="Select Adobe Adept \'.der\' key file",
+            if keypath := tkinter.filedialog.askopenfilename(
+                parent=None,
+                title="Select Adobe Adept \'.der\' key file",
                 defaultextension=".der",
-                filetypes=[('Adobe Adept DER-encoded files', '.der'),
-                           ('All Files', '.*')])
-            if keypath:
+                filetypes=[
+                    ('Adobe Adept DER-encoded files', '.der'),
+                    ('All Files', '.*'),
+                ],
+            ):
                 keypath = os.path.normpath(keypath)
                 self.keypath.delete(0, tkinter.constants.END)
                 self.keypath.insert(0, keypath)
             return
 
         def get_inpath(self):
-            inpath = tkinter.filedialog.askopenfilename(
-                parent=None, title="Select ADEPT-encrypted ePub file to decrypt",
-                defaultextension=".epub", filetypes=[('ePub files', '.epub')])
-            if inpath:
+            if inpath := tkinter.filedialog.askopenfilename(
+                parent=None,
+                title="Select ADEPT-encrypted ePub file to decrypt",
+                defaultextension=".epub",
+                filetypes=[('ePub files', '.epub')],
+            ):
                 inpath = os.path.normpath(inpath)
                 self.inpath.delete(0, tkinter.constants.END)
                 self.inpath.insert(0, inpath)
             return
 
         def get_outpath(self):
-            outpath = tkinter.filedialog.asksaveasfilename(
-                parent=None, title="Select unencrypted ePub file to produce",
-                defaultextension=".epub", filetypes=[('ePub files', '.epub')])
-            if outpath:
+            if outpath := tkinter.filedialog.asksaveasfilename(
+                parent=None,
+                title="Select unencrypted ePub file to produce",
+                defaultextension=".epub",
+                filetypes=[('ePub files', '.epub')],
+            ):
                 outpath = os.path.normpath(outpath)
                 self.outpath.delete(0, tkinter.constants.END)
                 self.outpath.insert(0, outpath)

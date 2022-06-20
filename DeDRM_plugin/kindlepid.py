@@ -23,7 +23,7 @@ class SafeUnbuffered:
     def __init__(self, stream):
         self.stream = stream
         self.encoding = stream.encoding
-        if self.encoding == None:
+        if self.encoding is None:
             self.encoding = "utf-8"
     def write(self, data):
         if isinstance(data, str):
@@ -83,7 +83,7 @@ def checksumPid(s):
     crc = crc ^ (crc >> 16)
     res = s
     l = len(letters)
-    for i in (0,1):
+    for _ in (0, 1):
         b = crc & 0xff
         pos = (b // l) ^ (b % l)
         res += letters[pos%l]

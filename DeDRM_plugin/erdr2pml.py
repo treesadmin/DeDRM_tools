@@ -70,10 +70,7 @@ __version__='1.00'
 import sys, re
 import struct, binascii, getopt, zlib, os, os.path, urllib, tempfile, traceback
 
-if 'calibre' in sys.modules:
-    inCalibre = True
-else:
-    inCalibre = False
+inCalibre = 'calibre' in sys.modules
 
 # Wrap a stream so that output gets flushed immediately
 # and also make sure that any unicode strings get
@@ -82,7 +79,7 @@ class SafeUnbuffered:
     def __init__(self, stream):
         self.stream = stream
         self.encoding = stream.encoding
-        if self.encoding == None:
+        if self.encoding is None:
             self.encoding = "utf-8"
     def write(self, data):
         if isinstance(data,str):
@@ -139,7 +136,7 @@ if iswindows:
     else:
         import pycrypto_des
     Des = pycrypto_des.load_pycrypto()
-    if Des == None:
+    if Des is None:
         # they try with openssl
         if inCalibre:
             from calibre_plugins.dedrm import openssl_des
@@ -153,7 +150,7 @@ else:
     else:
         import openssl_des
     Des = openssl_des.load_libcrypto()
-    if Des == None:
+    if Des is None:
         # then try with pycrypto
         if inCalibre:
             from calibre_plugins.dedrm import pycrypto_des
@@ -163,7 +160,7 @@ else:
 
 # if that did not work then use pure python implementation
 # of DES and try to speed it up with Psycho
-if Des == None:
+if Des is None:
     if inCalibre:
         from calibre_plugins.dedrm import python_des
     else:
@@ -196,7 +193,7 @@ class Sectionizer(object):
 
     def __init__(self, filename, ident):
         self.contents = open(filename, 'rb').read()
-        self.header = self.contents[0:72]
+        self.header = self.contents[:72]
         self.num_sections, = struct.unpack('>H', self.contents[76:78])
         # Dictionary or normal content (TODO: Not hard-coded)
         if self.header[0x3C:0x3C+8] != ident:
@@ -469,7 +466,7 @@ def decryptBook(infile, outpath, make_pmlz, user_key):
     else:
         pmlzname = None
         outdir = outpath
-        imagedirpath = os.path.join(outdir,bookname + "_img")
+        imagedirpath = os.path.join(outdir, f"{bookname}_img")
 
     try:
         if not os.path.exists(outdir):
@@ -488,7 +485,7 @@ def decryptBook(infile, outpath, make_pmlz, user_key):
 
         print("Extracting pml")
         pml_string = er.getText()
-        pmlfilename = bookname + ".pml"
+        pmlfilename = f"{bookname}.pml"
         open(os.path.join(outdir, pmlfilename),'wb').write(cleanPML(pml_string))
         if pmlzname is not None:
             import zipfile
@@ -561,22 +558,21 @@ def cli_main():
         if o == "-h":
             usage()
             return 0
-        elif o == "-p":
+        elif o in ["-p", "--make-pmlz"]:
             make_pmlz = True
-        elif o == "--make-pmlz":
-            make_pmlz = True
-
-    if len(args)!=3 and len(args)!=4:
+    if len(args) not in [3, 4]:
         usage()
         return 1
 
     if len(args)==3:
         infile, name, cc = args
-        if make_pmlz:
-            outpath = os.path.splitext(infile)[0] + ".pmlz"
-        else:
-            outpath = os.path.splitext(infile)[0] + "_Source"
-    elif len(args)==4:
+        outpath = (
+            f"{os.path.splitext(infile)[0]}.pmlz"
+            if make_pmlz
+            else f"{os.path.splitext(infile)[0]}_Source"
+        )
+
+    else:
         infile, outpath, name, cc = args
 
     print(binascii.b2a_hex(getuser_key(name,cc)))
