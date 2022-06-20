@@ -73,7 +73,7 @@ class SafeUnbuffered:
     def __init__(self, stream):
         self.stream = stream
         self.encoding = stream.encoding
-        if self.encoding == None:
+        if self.encoding is None:
             self.encoding = "utf-8"
     def write(self, data):
         if isinstance(data, str):
@@ -232,9 +232,8 @@ def _load_crypto_libcrypto():
             self._blocksize = len(userkey)
             # mode is ignored since CBCMODE is only thing supported/used so far
             self._mode = mode
-            if (self._blocksize != 16) and (self._blocksize != 24) and (self._blocksize != 32) :
+            if self._blocksize not in [16, 24, 32]:
                 raise ADEPTError('AES improper key used')
-                return
             keyctx = self._keyctx = AES_KEY()
             self._iv = iv
             rv = AES_set_decrypt_key(userkey, len(userkey) * 8, keyctx)
@@ -276,7 +275,7 @@ def _load_crypto_pycrypto():
                 if self.index + length > len(self.bytes):
                     raise ASN1Error("Error decoding ASN.1")
                 x = 0
-                for count in range(length):
+                for _ in range(length):
                     x <<= 8
                     x |= self.bytes[self.index]
                     self.index += 1
@@ -335,7 +334,7 @@ def _load_crypto_pycrypto():
 
         def getChild(self, which):
             p = self.Parser(self.value)
-            for x in range(which+1):
+            for _ in range(which+1):
                 markIndex = p.index
                 p.get(1)
                 length = self._getASN1Length(p)
@@ -346,9 +345,8 @@ def _load_crypto_pycrypto():
             firstLength = p.get(1)
             if firstLength<=127:
                 return firstLength
-            else:
-                lengthLength = firstLength & 0x7F
-                return p.get(lengthLength)
+            lengthLength = firstLength & 0x7F
+            return p.get(lengthLength)
 
     class ARC4(object):
         @classmethod
@@ -375,7 +373,7 @@ def _load_crypto_pycrypto():
 
     class RSA(object):
         def __init__(self, der):
-            key = ASN1Parser([x for x in der])
+            key = ASN1Parser(list(der))
             key = [key.getChild(x).value for x in range(1, 4)]
             key = [self.bytesToNumber(v) for v in key]
             self._rsa = _RSA.construct(key)
@@ -483,7 +481,7 @@ class PSLiteral(PSObject):
             if not char.isalnum():
                 char = '#%02x' % ord(char)
             name.append(char)
-        return '/%s' % ''.join(name)
+        return f"/{''.join(name)}"
 
 # PSKeyword
 class PSKeyword(PSObject):
@@ -803,8 +801,7 @@ class PSBaseParser(object):
         while not self.tokens:
             self.fillbuf()
             (self.parse1, self.charpos) = self.parse1(self.buf, self.charpos)
-        token = self.tokens.pop(0)
-        return token
+        return self.tokens.pop(0)
 
     def nextline(self):
         '''
@@ -822,8 +819,7 @@ class PSBaseParser(object):
                     linebuf += c
                     self.charpos += 1
                 break
-            m = EOL.search(self.buf, self.charpos)
-            if m:
+            if m := EOL.search(self.buf, self.charpos):
                 linebuf += self.buf[self.charpos:m.end(0)]
                 self.charpos = m.end(0)
                 if bytes([linebuf[-1]]) == b'\r':
@@ -843,7 +839,7 @@ class PSBaseParser(object):
         self.fp.seek(0, 2)
         pos = self.fp.tell()
         buf = b''
-        while 0 < pos:
+        while pos > 0:
             prevpos = pos
             pos = max(0, pos-self.BUFSIZ)
             self.fp.seek(pos)
@@ -948,8 +944,7 @@ class PSStackParser(PSBaseParser):
                         # temporary fix. is this due to rental books?
                         # raise PSSyntaxError(
                         #     'Invalid dictionary construct: %r' % objs)
-                    d = dict((literal_name(k), v) \
-                                 for (k,v) in choplist(2, objs))
+                    d = {literal_name(k): v for (k,v) in choplist(2, objs)}
                     self.push((pos, d))
                 except PSTypeError:
                     if STRICT: raise
@@ -957,12 +952,10 @@ class PSStackParser(PSBaseParser):
                 self.do_keyword(pos, token)
             if self.context:
                 continue
-            else:
-                if direct:
-                    return self.pop(1)[0]
-                self.flush()
-        obj = self.results.pop(0)
-        return obj
+            if direct:
+                return self.pop(1)[0]
+            self.flush()
+        return self.results.pop(0)
 
 
 LITERAL_CRYPT = LIT(b'Crypt')
@@ -986,9 +979,8 @@ class PDFNotImplementedError(PSException): pass
 class PDFObjRef(PDFObject):
 
     def __init__(self, doc, objid, genno):
-        if objid == 0:
-            if STRICT:
-                raise PDFValueError('PDF object id cannot be 0.')
+        if objid == 0 and STRICT:
+            raise PDFValueError('PDF object id cannot be 0.')
         self.doc = doc
         self.objid = objid
         self.genno = genno
@@ -1030,13 +1022,13 @@ def decipher_all(decipher, objid, genno, x):
     '''
     Recursively decipher X.
     '''
-    if isinstance(x, bytearray) or isinstance(x,bytes):
+    if isinstance(x, (bytearray, bytes)):
         return decipher(objid, genno, x)
     decf = lambda v: decipher_all(decipher, objid, genno, v)
     if isinstance(x, list):
         x = [decf(v) for v in x]
     elif isinstance(x, dict):
-        x = dict((k, decf(v)) for (k, v) in iter(x.items()))
+        x = {k: decf(v) for (k, v) in iter(x.items())}
     return x
 
 
@@ -1059,7 +1051,7 @@ def decimal_value(x):
 
 def num_value(x):
     x = resolve1(x)
-    if not (isinstance(x, int) or isinstance(x, Decimal)):
+    if not isinstance(x, (int, Decimal)):
         if STRICT:
             raise PDFTypeError('Int or Float required: %r' % x)
         return 0
@@ -1067,7 +1059,7 @@ def num_value(x):
 
 def str_value(x):
     x = resolve1(x)
-    if not (isinstance(x, bytearray) or isinstance(x, bytes)):
+    if not isinstance(x, (bytearray, bytes)):
         if STRICT:
             raise PDFTypeError('String required: %r' % x)
         return ''
@@ -1075,7 +1067,7 @@ def str_value(x):
 
 def list_value(x):
     x = resolve1(x)
-    if not (isinstance(x, list) or isinstance(x, tuple)):
+    if not isinstance(x, (list, tuple)):
         if STRICT:
             raise PDFTypeError('List required: %r' % x)
         return []
@@ -1102,7 +1094,7 @@ def ascii85decode(data):
     n = b = 0
     out = b''
     for c in data:
-        if b'!' <= c and c <= b'u':
+        if b'!' <= c <= b'u':
             n += 1
             b = b*85+(c-33)
             if n == 5:
@@ -1131,9 +1123,8 @@ class PDFStream(PDFObject):
             if (len(rawdata) % 16) != 0:
                 cutdiv = len(rawdata) // 16
                 rawdata = rawdata[:16*cutdiv]
-        else:
-            if eol in (b'\r', b'\n', b'\r\n'):
-                rawdata = rawdata[:length]
+        elif eol in (b'\r', b'\n', b'\r\n'):
+            rawdata = rawdata[:length]
 
         self.dic = dic
         self.rawdata = rawdata
@@ -1190,8 +1181,7 @@ class PDFStream(PDFObject):
             else:
                 params = self.dic.get('DecodeParms', {})
             if 'Predictor' in params:
-                pred = int_value(params['Predictor'])
-                if pred:
+                if pred := int_value(params['Predictor']):
                     if pred != 12:
                         raise PDFNotImplementedError(
                             'Unsupported predictor: %r' % pred)
@@ -1332,12 +1322,11 @@ class PDFXRefStream(object):
         return
 
     def __repr__(self):
-        return '<PDFXRef: objids=%s>' % self.index
+        return f'<PDFXRef: objids={self.index}>'
 
     def objids(self):
         for first, size in self.index:
-            for objid in range(first, first + size):
-                yield objid
+            yield from range(first, first + size)
 
     def load(self, parser, debug=0):
         (_,objid) = parser.nexttoken() # ignored
@@ -1360,7 +1349,7 @@ class PDFXRefStream(object):
     def getpos(self, objid):
         offset = 0
         for first, size in self.index:
-            if first <= objid  and objid < (first + size):
+            if first <= objid < first + size:
                 break
             offset += size
         else:
@@ -1428,11 +1417,10 @@ class PDFDocument(object):
                 except:
                     self.encryption = (b'ffffffffffffffffffffffffffffffffffff',
                                        dict_value(trailer['Encrypt']))
-            if 'Root' in trailer:
-                self.set_root(dict_value(trailer['Root']))
-                break
-            else:
+            if 'Root' not in trailer:
                 raise PDFSyntaxError('No /Root object! - Is this really a PDF?')
+            self.set_root(dict_value(trailer['Root']))
+            break
         # The document is set to be non-ready again, until all the
         # proper initialization (asking the password key and
         # verifying the access permission, so on) is finished.
@@ -1445,9 +1433,8 @@ class PDFDocument(object):
     def set_root(self, root):
         self.root = root
         self.catalog = dict_value(self.root)
-        if self.catalog.get('Type') is not LITERAL_CATALOG:
-            if STRICT:
-                raise PDFSyntaxError('Catalog not found!')
+        if self.catalog.get('Type') is not LITERAL_CATALOG and STRICT:
+            raise PDFSyntaxError('Catalog not found!')
         return
     # initialize(password='')
     #   Perform the initialization with a given password.
@@ -1458,7 +1445,6 @@ class PDFDocument(object):
             self.is_printable = self.is_modifiable = self.is_extractable = True
             self.ready = True
             raise PDFEncryptionError('Document is not encrypted.')
-            return
         (docid, param) = self.encryption
         type = literal_name(param['Filter'])
         if type == 'Adobe.APS':
@@ -1519,7 +1505,7 @@ class PDFDocument(object):
         length = int_value(param.get('Length', 40)) # Key length (bits)
         O = str_value(param['O'])
         R = int_value(param['R']) # Revision
-        if 5 <= R:
+        if R >= 5:
             raise PDFEncryptionError('Unknown revision: %r' % R)
         U = str_value(param['U'])
         P = int_value(param['P'])
@@ -1544,7 +1530,7 @@ class PDFDocument(object):
         # aes special handling if metadata isn't encrypted
         if EncMetadata == ('False' or 'false'):
             hash.update(codecs.decode(b'ffffffff','hex'))
-        if 5 <= R:
+        if R >= 5:
             # 8
             for _ in range(50):
                 hash = hashlib.md5(hash.digest()[:length//8])
@@ -1561,28 +1547,22 @@ class PDFDocument(object):
                 k = b''.join(bytes([c ^ i]) for c in key )
                 x = ARC4.new(k).decrypt(x)
             u1 = x+x # 32bytes total
-        if R == 2:
-            is_authenticated = (u1 == U)
-        else:
-            is_authenticated = (u1[:16] == U[:16])
+        is_authenticated = (u1 == U) if R == 2 else (u1[:16] == U[:16])
         if not is_authenticated:
             raise ADEPTError('Password is not correct.')
         self.decrypt_key = key
         # genkey method
-        if V == 1 or V == 2:
+        if V in [1, 2] or V != 3 and V == 4:
             self.genkey = self.genkey_v2
         elif V == 3:
             self.genkey = self.genkey_v3
-        elif V == 4:
-            self.genkey = self.genkey_v2
         #self.genkey = self.genkey_v3 if V == 3 else self.genkey_v2
         # rc4
         if V != 4:
             self.decipher = self.decipher_rc4  # XXX may be AES
-        # aes
-        elif V == 4 and length == 128:
+        elif length == 128:
             self.decipher = self.decipher_aes
-        elif V == 4 and length == 256:
+        elif length == 256:
             raise PDFNotImplementedError('AES256 encryption is currently unsupported')
         self.ready = True
         return
@@ -1599,19 +1579,15 @@ class PDFDocument(object):
         bookkey = rsa.decrypt(bookkey)
         #if bookkey[0] != 2:
         #    raise ADEPTError('error decrypting book session key')
-        if len(bookkey) > 16:
-            if bookkey[-17] == '\x00' or bookkey[-17] == 0:
-                bookkey = bookkey[-16:]
-                length = 16
+        if len(bookkey) > 16 and bookkey[-17] in ['\x00', 0]:
+            bookkey = bookkey[-16:]
+            length = 16
         ebx_V = int_value(param.get('V', 4))
         ebx_type = int_value(param.get('EBX_ENCRYPTIONTYPE', 6))
         # added because of improper booktype / decryption book session key errors
         if length > 0:
             if len(bookkey) == length:
-                if ebx_V == 3:
-                    V = 3
-                else:
-                    V = 2
+                V = 3 if ebx_V == 3 else 2
             elif len(bookkey) == length + 1:
                 V = bookkey[0]
                 bookkey = bookkey[1:]
@@ -1625,10 +1601,7 @@ class PDFDocument(object):
             print("ebx_V is %d  and ebx_type is %d" % (ebx_V, ebx_type))
             print("length is %d and len(bookkey) is %d" % (length, len(bookkey)))
             print("bookkey[0] is %d" % bookkey[0])
-            if ebx_V == 3:
-                V = 3
-            else:
-                V = 2
+            V = 3 if ebx_V == 3 else 2
         self.decrypt_key = bookkey
         self.genkey = self.genkey_v3 if V == 3 else self.genkey_v2
         self.decipher = self.decrypt_rc4
@@ -1712,9 +1685,8 @@ class PDFDocument(object):
                     return PDFObjStmRef(objid, stmid, index)
                 # Stuff from pdfminer: extract objects from object stream
                 stream = stream_value(self.getobj(stmid))
-                if stream.dic.get('Type') is not LITERAL_OBJSTM:
-                    if STRICT:
-                        raise PDFSyntaxError('Not a stream object: %r' % stream)
+                if stream.dic.get('Type') is not LITERAL_OBJSTM and STRICT:
+                    raise PDFSyntaxError('Not a stream object: %r' % stream)
                 try:
                     n = stream.dic['N']
                 except KeyError:
@@ -1890,14 +1862,13 @@ class PDFParser(PSStackParser):
             self.seek(pos)
             self.reset()
             xref = PDFXRefStream()
-            xref.load(self)
         else:
             if token is not self.KEYWORD_XREF:
                 raise PDFNoValidXRef('xref not found: pos=%d, token=%r' %
                                      (pos, token))
             self.nextline()
             xref = PDFXRef()
-            xref.load(self)
+        xref.load(self)
         xrefs.append(xref)
         trailer = xref.trailer
         if 'XRefStm' in trailer:
@@ -2021,7 +1992,7 @@ class PDFSerializer(object):
         if not gen_xref_stm:
             self.write(b'xref\n')
             self.write(b'0 %d\n' % (maxobj + 1,))
-            for objid in range(0, maxobj + 1):
+            for objid in range(maxobj + 1):
                 if objid in xrefs:
                     # force the genno to be 0
                     self.write(b"%010d 00000 n \n" % xrefs[objid][0])
@@ -2075,9 +2046,14 @@ class PDFSerializer(object):
                     # f3 = objref[1]
                     f3 = 0
 
-                data.append(struct.pack('>B', f1))
-                data.append(struct.pack('>L', f2)[-fl2:])
-                data.append(struct.pack('>L', f3)[-fl3:])
+                data.extend(
+                    (
+                        struct.pack('>B', f1),
+                        struct.pack('>L', f2)[-fl2:],
+                        struct.pack('>L', f3)[-fl3:],
+                    )
+                )
+
             index.extend((first, prev - first + 1))
             data = zlib.compress(b''.join(data))
             dic = {'Type': LITERAL_XREF, 'Size': prev + 1, 'Index': index,
@@ -2249,32 +2225,39 @@ def gui_main():
             button.pack(side=tkinter.constants.RIGHT)
 
         def get_keypath(self):
-            keypath = tkinter.filedialog.askopenfilename(
-                parent=None, title="Select Adobe Adept \'.der\' key file",
+            if keypath := tkinter.filedialog.askopenfilename(
+                parent=None,
+                title="Select Adobe Adept \'.der\' key file",
                 defaultextension=".der",
-                filetypes=[('Adobe Adept DER-encoded files', '.der'),
-                           ('All Files', '.*')])
-            if keypath:
+                filetypes=[
+                    ('Adobe Adept DER-encoded files', '.der'),
+                    ('All Files', '.*'),
+                ],
+            ):
                 keypath = os.path.normpath(keypath)
                 self.keypath.delete(0, tkinter.constants.END)
                 self.keypath.insert(0, keypath)
             return
 
         def get_inpath(self):
-            inpath = tkinter.filedialog.askopenfilename(
-                parent=None, title="Select ADEPT-encrypted PDF file to decrypt",
-                defaultextension=".pdf", filetypes=[('PDF files', '.pdf')])
-            if inpath:
+            if inpath := tkinter.filedialog.askopenfilename(
+                parent=None,
+                title="Select ADEPT-encrypted PDF file to decrypt",
+                defaultextension=".pdf",
+                filetypes=[('PDF files', '.pdf')],
+            ):
                 inpath = os.path.normpath(inpath)
                 self.inpath.delete(0, tkinter.constants.END)
                 self.inpath.insert(0, inpath)
             return
 
         def get_outpath(self):
-            outpath = tkinter.filedialog.asksaveasfilename(
-                parent=None, title="Select unencrypted PDF file to produce",
-                defaultextension=".pdf", filetypes=[('PDF files', '.pdf')])
-            if outpath:
+            if outpath := tkinter.filedialog.asksaveasfilename(
+                parent=None,
+                title="Select unencrypted PDF file to produce",
+                defaultextension=".pdf",
+                filetypes=[('PDF files', '.pdf')],
+            ):
                 outpath = os.path.normpath(outpath)
                 self.outpath.delete(0, tkinter.constants.END)
                 self.outpath.insert(0, outpath)

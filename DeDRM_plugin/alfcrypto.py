@@ -112,9 +112,8 @@ def _load_libalfcrypto():
 
         def set_decrypt_key(self, userkey, iv):
             self._blocksize = len(userkey)
-            if (self._blocksize != 16) and (self._blocksize != 24) and (self._blocksize != 32) :
+            if self._blocksize not in [16, 24, 32]:
                 raise Exception('AES CBC improper key used')
-                return
             keyctx = self._keyctx = AES_KEY()
             self._iv = iv
             rv = AES_set_decrypt_key(userkey, len(userkey) * 8, keyctx)
@@ -136,9 +135,7 @@ def _load_libalfcrypto():
         def PC1(self, key, src, decryption=True):
             self.key = key
             out = create_string_buffer(len(src))
-            de = 0
-            if decryption:
-                de = 1
+            de = 1 if decryption else 0
             rv = PC1(key, len(key), src, out, len(src), de)
             return out.raw
 
@@ -152,7 +149,7 @@ def _load_libalfcrypto():
             return tpz_ctx
 
         def decrypt(self, data,  ctx=None):
-            if ctx == None:
+            if ctx is None:
                 ctx = self._ctx
             out = create_string_buffer(len(data))
             topazCryptoDecrypt(ctx, data, out, len(data))
@@ -176,9 +173,7 @@ def _load_python_alfcrypto():
             keyXorVal = 0;
             if len(key)!=16:
                 raise Exception('Pukall_Cipher: Bad key length.')
-            wkey = []
-            for i in range(8):
-                wkey.append(ord(key[i*2])<<8 | ord(key[i*2+1]))
+            wkey = [ord(key[i*2])<<8 | ord(key[i*2+1]) for i in range(8)]
             dst = ""
             for i in range(len(src)):
                 temp1 = 0;
@@ -210,12 +205,16 @@ def _load_python_alfcrypto():
             for keyChar in key:
                 keyByte = ord(keyChar)
                 ctx2 = ctx1
-                ctx1 = ((((ctx1 >>2) * (ctx1 >>7))&0xFFFFFFFF) ^ (keyByte * keyByte * 0x0F902007)& 0xFFFFFFFF )
+                ctx1 = (
+                    ((ctx1 >> 2) * (ctx1 >> 7)) & 0xFFFFFFFF
+                    ^ keyByte**2 * 0x0F902007
+                ) & 0xFFFFFFFF
+
             self._ctx = [ctx1, ctx2]
             return [ctx1,ctx2]
 
         def decrypt(self, data,  ctx=None):
-            if ctx == None:
+            if ctx is None:
                 ctx = self._ctx
             ctx1 = ctx[0]
             ctx2 = ctx[1]
@@ -241,8 +240,7 @@ def _load_python_alfcrypto():
 
         def decrypt(self, data):
             iv = self._iv
-            cleartext = self.aes.decrypt(iv + data)
-            return cleartext
+            return self.aes.decrypt(iv + data)
 
     print("Using Library AlfCrypto Python")
     return (AES_CBC, Pukall_Cipher, Topaz_Cipher)
@@ -255,7 +253,7 @@ def _load_crypto():
         try:
             AES_CBC, Pukall_Cipher, Topaz_Cipher = loader()
             break
-        except (ImportError, Exception):
+        except Exception:
             pass
     return AES_CBC, Pukall_Cipher, Topaz_Cipher
 
@@ -271,7 +269,7 @@ class KeyIVGen(object):
         def xorbytes( a, b ):
             if len(a) != len(b):
                 raise Exception("xorbytes(): lengths differ")
-            return bytes([x ^ y for x, y in zip(a, b)])
+            return bytes(x ^ y for x, y in zip(a, b))
 
         def prf( h, data ):
             hm = h.copy()
@@ -281,7 +279,7 @@ class KeyIVGen(object):
         def pbkdf2_F( h, salt, itercount, blocknum ):
             U = prf( h, salt + pack('>i',blocknum ) )
             T = U
-            for i in range(2, itercount+1):
+            for _ in range(2, itercount+1):
                 U = prf( h, U )
                 T = xorbytes( T, U )
             return T

@@ -58,7 +58,7 @@ class SafeUnbuffered:
     def __init__(self, stream):
         self.stream = stream
         self.encoding = stream.encoding
-        if self.encoding == None:
+        if self.encoding is None:
             self.encoding = "utf-8"
     def write(self, data):
         if isinstance(data, str):
@@ -146,11 +146,8 @@ def primes(n):
     primeList = [2]
 
     for potentialPrime in range(3, n + 1, 2):
-        isItPrime = True
-        for prime in primeList:
-            if potentialPrime % prime == 0:
-                isItPrime = False
-        if isItPrime is True:
+        isItPrime = all(potentialPrime % prime != 0 for prime in primeList)
+        if isItPrime:
             primeList.append(potentialPrime)
 
     return primeList
@@ -235,9 +232,7 @@ if iswindows:
 
         def xor(a,b):
             """ XOR two byte arrays, to lesser length """
-            x = []
-            for i in range(min(len(a),len(b))):
-                x.append( a[i] ^ b[i])
+            x = [a[i] ^ b[i] for i in range(min(len(a),len(b)))]
             return bytes(x)
 
         """
@@ -277,7 +272,7 @@ if iswindows:
                 else:
                     self.bytesToEncrypt = ''
 
-                if more == None:   # no more data expected from caller
+                if more is None:   # no more data expected from caller
                     finalBytes = self.padding.addPad(self.bytesToEncrypt,self.blockSize)
                     if len(finalBytes) > 0:
                         ctBlock = self.encryptBlock(finalBytes)
@@ -291,9 +286,8 @@ if iswindows:
                 self.bytesToDecrypt += cipherText  # append to any bytes from prior decrypt
 
                 numBlocks, numExtraBytes = divmod(len(self.bytesToDecrypt), self.blockSize)
-                if more == None:  # no more calls to decrypt, should have all the data
-                    if numExtraBytes  != 0:
-                        raise DecryptNotBlockAlignedError('Data not block aligned on decrypt')
+                if more is None and numExtraBytes != 0:
+                    raise DecryptNotBlockAlignedError('Data not block aligned on decrypt')
 
                 # hold back some bytes in case last decrypt has zero len
                 if (more != None) and (numExtraBytes == 0) and (numBlocks >0) :
@@ -312,7 +306,7 @@ if iswindows:
                 else:
                     self.bytesToEncrypt = ''
 
-                if more == None:         # last decrypt remove padding
+                if more is None:         # last decrypt remove padding
                     plainText = self.padding.removePad(plainText, self.blockSize)
                     self.resetDecrypt()
                 return plainText
@@ -334,7 +328,7 @@ if iswindows:
 
             def removePad(self, paddedBinaryString, blockSize):
                 """ Remove padding from a binary string """
-                if not(0<len(paddedBinaryString)):
+                if len(paddedBinaryString) <= 0:
                     raise DecryptNotBlockAlignedError('Expected More Data')
                 return paddedBinaryString[:-ord(paddedBinaryString[-1])]
 
@@ -384,7 +378,7 @@ if iswindows:
             def encryptBlock(self, plainTextBlock):
                 """ Encrypt a block, plainTextBlock must be a array of bytes [Nb by 4] """
                 self.state = self._toBlock(plainTextBlock)
-                AddRoundKey(self, self.__expandedKey[0:self.Nb])
+                AddRoundKey(self, self.__expandedKey[:self.Nb])
                 for round in range(1,self.Nr):          #for round = 1 step 1 to Nr
                     SubBytes(self)
                     ShiftRows(self)
@@ -407,7 +401,7 @@ if iswindows:
                     InvMixColumns(self)
                 InvShiftRows(self)
                 InvSubBytes(self)
-                AddRoundKey(self, self.__expandedKey[0:self.Nb])
+                AddRoundKey(self, self.__expandedKey[:self.Nb])
                 return self._toBString(self.state)
 
             def _toBlock(self, bs):
@@ -419,8 +413,7 @@ if iswindows:
                 """ Convert block (array of bytes) to binary string """
                 l = []
                 for col in block:
-                    for rowElement in col:
-                        l.append(rowElement)
+                    l.extend(iter(col))
                 return bytes(l)
         #-------------------------------------
         """    Number of rounds Nr = NrTable[Nb][Nk]
@@ -587,10 +580,7 @@ if iswindows:
         def mul(a, b):
             """ Multiply two elements of GF(2^m)
                 needed for MixColumn and InvMixColumn """
-            if (a !=0 and  b!=0):
-                return Alogtable[(Logtable[a] + Logtable[b])%255]
-            else:
-                return 0
+            return Alogtable[(Logtable[a] + Logtable[b])%255] if (a !=0 and  b!=0) else 0
 
         Logtable = ( 0,   0,  25,   1,  50,   2,  26, 198,  75, 199,  27, 104,  51, 238, 223,   3,
                    100,   4, 224,  14,  52, 141, 129, 239,  76, 113,   8, 200, 248, 105,  28, 193,
@@ -641,7 +631,7 @@ if iswindows:
             """
             def __init__(self, key = None, padding = padWithPadLen(), keySize=16):
                 """ Initialize AES, keySize is in bytes """
-                if  not (keySize == 16 or keySize == 24 or keySize == 32) :
+                if keySize not in [16, 24, 32]:
                     raise BadKeySizeError('Illegal AES key size, must be 16, 24, or 32 bytes')
 
                 Rijndael.__init__( self, key, padding=padding, keySize=keySize, blockSize=16 )
@@ -665,13 +655,12 @@ if iswindows:
             def __init__(self, blockCipherInstance, padding = padWithPadLen()):
                 """ CBC algorithms are created by initializing with a BlockCipher instance """
                 self.baseCipher = blockCipherInstance
-                self.name       = self.baseCipher.name + '_CBC'
+                self.name = f'{self.baseCipher.name}_CBC'
                 self.blockSize  = self.baseCipher.blockSize
                 self.keySize    = self.baseCipher.keySize
                 self.padding    = padding
                 self.baseCipher.padding = noPadding()   # baseCipher should NOT pad!!
                 self.r          = Random()            # for IV generation, currently uses
-                                                      # mediocre standard distro version     <----------------
                 import time
                 newSeed = time.ctime()+str(self.r)    # seed with instance location
                 self.r.seed(newSeed)                  # to make unique
@@ -696,7 +685,7 @@ if iswindows:
                 if self.encryptBlockCount == 0:
                     self.iv = iv
                 else:
-                    assert(iv==None), 'IV used only on first call to encrypt'
+                    assert iv is None, 'IV used only on first call to encrypt'
 
                 return BlockCipher.encrypt(self,plainText, more=more)
 
@@ -707,7 +696,7 @@ if iswindows:
                 if self.decryptBlockCount == 0:
                     self.iv = iv
                 else:
-                    assert(iv==None), 'IV used only on first call to decrypt'
+                    assert iv is None, 'IV used only on first call to decrypt'
 
                 return BlockCipher.decrypt(self, cipherText, more=more)
 
@@ -715,12 +704,12 @@ if iswindows:
                 """ CBC block encryption, IV is set with 'encrypt' """
                 auto_IV = ''
                 if self.encryptBlockCount == 0:
-                    if self.iv == None:
+                    if self.iv is None:
                         # generate IV and use
-                        self.iv = ''.join([chr(self.r.randrange(256)) for i in range(self.blockSize)])
+                        self.iv = ''.join([chr(self.r.randrange(256)) for _ in range(self.blockSize)])
                         self.prior_encr_CT_block = self.iv
                         auto_IV = self.prior_encr_CT_block    # prepend IV if it's automatic
-                    else:                       # application provided IV
+                    else:
                         assert(len(self.iv) == self.blockSize ),'IV must be same length as block'
                         self.prior_encr_CT_block = self.iv
                 """ encrypt the prior CT XORed with the PT """
@@ -731,8 +720,8 @@ if iswindows:
             def decryptBlock(self, encryptedBlock):
                 """ Decrypt a single block """
 
-                if self.decryptBlockCount == 0:   # first call, process IV
-                    if self.iv == None:    # auto decrypt IV?
+                if self.decryptBlockCount == 0:# auto decrypt IV?
+                    if self.iv is None:
                         self.prior_CT_block = encryptedBlock
                         return b''
                     else:
@@ -771,8 +760,7 @@ if iswindows:
 
             def decrypt(self, data):
                 iv = self._iv
-                cleartext = self.aes.decrypt(iv + data)
-                return cleartext
+                return self.aes.decrypt(iv + data)
 
         import hmac
 
@@ -785,7 +773,7 @@ if iswindows:
                 def xorbytes( a, b ):
                     if len(a) != len(b):
                         raise Exception("xorbytes(): lengths differ")
-                    return bytes([x ^ y for x, y in zip(a, b)])
+                    return bytes(x ^ y for x, y in zip(a, b))
 
                 def prf( h, data ):
                     hm = h.copy()
@@ -795,7 +783,7 @@ if iswindows:
                 def pbkdf2_F( h, salt, itercount, blocknum ):
                     U = prf( h, salt + pack('>i',blocknum ) )
                     T = U
-                    for i in range(2, itercount+1):
+                    for _ in range(2, itercount+1):
                         U = prf( h, U )
                         T = xorbytes( T, U )
                     return T
@@ -818,12 +806,11 @@ if iswindows:
         iter = 0x80
         keylen = 0x100
         key_iv = KeyIVGen().pbkdf2(passwdData, salt, iter, keylen)
-        key = key_iv[0:32]
+        key = key_iv[:32]
         iv = key_iv[32:48]
         aes=AES_CBC()
         aes.set_decrypt_key(key, iv)
-        cleartext = aes.decrypt(encryptedData)
-        return cleartext
+        return aes.decrypt(encryptedData)
 
     # Various character maps used to decrypt kindle info values.
     # Probably supposed to act as obfuscation
@@ -866,9 +853,8 @@ if iswindows:
     GetVolumeSerialNumber = GetVolumeSerialNumber()
 
     def GetIDString():
-        vsn = GetVolumeSerialNumber()
         #print('Using Volume Serial Number for ID: '+vsn)
-        return vsn
+        return GetVolumeSerialNumber()
 
     def getLastError():
         GetLastError = kernel32.GetLastError
@@ -896,7 +882,7 @@ if iswindows:
                 size.value = len(buffer)
 
             # replace any non-ASCII values with 0xfffd
-            for i in range(0,len(buffer)):
+            for i in range(len(buffer)):
                 if buffer[i]>"\u007f":
                     #print "swapping char "+str(i)+" ("+buffer[i]+")"
                     buffer[i] = "\ufffd"
@@ -972,41 +958,40 @@ if iswindows:
             print ('Could not find the folder in which to look for kinfoFiles.')
         else:
             # Probably not the best. To Fix (shouldn't ignore in encoding) or use utf-8
-            print("searching for kinfoFiles in " + path)
+            print(f"searching for kinfoFiles in {path}")
 
             # look for (K4PC 1.25.1 and later) .kinf2018 file
             kinfopath = path +'\\Amazon\\Kindle\\storage\\.kinf2018'
             if os.path.isfile(kinfopath):
                 found = True
-                print('Found K4PC 1.25+ kinf2018 file: ' + kinfopath)
+                print(f'Found K4PC 1.25+ kinf2018 file: {kinfopath}')
                 kInfoFiles.append(kinfopath)
 
             # look for (K4PC 1.9.0 and later) .kinf2011 file
             kinfopath = path +'\\Amazon\\Kindle\\storage\\.kinf2011'
             if os.path.isfile(kinfopath):
                 found = True
-                print('Found K4PC 1.9+ kinf2011 file: ' + kinfopath)
+                print(f'Found K4PC 1.9+ kinf2011 file: {kinfopath}')
                 kInfoFiles.append(kinfopath)
 
             # look for (K4PC 1.6.0 and later) rainier.2.1.1.kinf file
             kinfopath = path +'\\Amazon\\Kindle\\storage\\rainier.2.1.1.kinf'
             if os.path.isfile(kinfopath):
                 found = True
-                print('Found K4PC 1.6-1.8 kinf file: ' + kinfopath)
+                print(f'Found K4PC 1.6-1.8 kinf file: {kinfopath}')
                 kInfoFiles.append(kinfopath)
 
             # look for (K4PC 1.5.0 and later) rainier.2.1.1.kinf file
             kinfopath = path +'\\Amazon\\Kindle For PC\\storage\\rainier.2.1.1.kinf'
             if os.path.isfile(kinfopath):
                 found = True
-                print('Found K4PC 1.5 kinf file: ' + kinfopath)
+                print(f'Found K4PC 1.5 kinf file: {kinfopath}')
                 kInfoFiles.append(kinfopath)
-
            # look for original (earlier than K4PC 1.5.0) kindle-info files
             kinfopath = path +'\\Amazon\\Kindle For PC\\{AMAwzsaPaaZAzmZzZQzgZCAkZ3AjA_AY}\\kindle.info'
             if os.path.isfile(kinfopath):
                 found = True
-                print('Found K4PC kindle.info file: ' + kinfopath)
+                print(f'Found K4PC kindle.info file: {kinfopath}')
                 kInfoFiles.append(kinfopath)
 
         if not found:
@@ -1080,7 +1065,7 @@ if iswindows:
 
             # the first 32 chars of the first record of a group
             # is the MD5 hash of the key name encoded by charMap5
-            keyhash = item[0:32]
+            keyhash = item[:32]
 
             # the remainder of the first record when decoded with charMap5
             # has the ':' split char followed by the string representation
@@ -1092,18 +1077,12 @@ if iswindows:
             # read and store in rcnt records of data
             # that make up the contents value
             edlst = []
-            for i in range(rcnt):
+            for _ in range(rcnt):
                 item = items.pop(0)
                 edlst.append(item)
 
             # key names now use the new testMap8 encoding
-            if keyhash in namehashmap:
-                keyname=namehashmap[keyhash]
-                #print "keyname found from hash:",keyname
-            else:
-                keyname = keyhash
-                #print "keyname not found, hash is:",keyname
-
+            keyname = namehashmap.get(keyhash, keyhash)
             # the testMap8 encoded contents data has had a length
             # of chars (always odd) cut off of the front and moved
             # to the end to prevent decoding using testMap8 from
@@ -1120,8 +1099,8 @@ if iswindows:
             encdata = b"".join(edlst)
             #print "encrypted data:",encdata
             contlen = len(encdata)
-            noffset = contlen - primes(int(contlen/3))[-1]
-            pfx = encdata[0:noffset]
+            noffset = contlen - primes(contlen // 3)[-1]
+            pfx = encdata[:noffset]
             encdata = encdata[noffset:]
             encdata = encdata + pfx
             #print "rearranged data:",encdata
@@ -1152,7 +1131,7 @@ if iswindows:
             if len(cleartext)>0:
                 #print "cleartext data:",cleartext,":end data"
                 DB[keyname] = cleartext
-            #print keyname, cleartext
+                #print keyname, cleartext
 
         if len(DB)>6:
             # store values used in decryption
@@ -1235,9 +1214,8 @@ elif isosx:
 
             def set_decrypt_key(self, userkey, iv):
                 self._blocksize = len(userkey)
-                if (self._blocksize != 16) and (self._blocksize != 24) and (self._blocksize != 32) :
+                if self._blocksize not in [16, 24, 32]:
                     raise DrmException("AES improper key used")
-                    return
                 keyctx = self._keyctx = AES_KEY()
                 self._iv = iv
                 self._userkey = userkey
@@ -1411,11 +1389,10 @@ elif isosx:
         keylen = 0x100
         crp = LibCrypto()
         key_iv = crp.keyivgen(passwdData, salt, iter, keylen)
-        key = key_iv[0:32]
+        key = key_iv[:32]
         iv = key_iv[32:48]
         crp.set_decrypt_key(key,iv)
-        cleartext = crp.decrypt(encryptedData)
-        return cleartext
+        return crp.decrypt(encryptedData)
 
 
     # implements an Pseudo Mac Version of Windows built-in Crypto routine
@@ -1428,7 +1405,7 @@ elif isosx:
             iter = 0x800
             keylen = 0x400
             key_iv = self.crp.keyivgen(passwdData, salt, iter, keylen)
-            self.key = key_iv[0:32]
+            self.key = key_iv[:32]
             self.iv = key_iv[32:48]
             self.crp.set_decrypt_key(self.key, self.iv)
 
@@ -1445,52 +1422,57 @@ elif isosx:
         found = False
         home = os.getenv('HOME')
         # check for  .kinf2018 file in new location (App Store Kindle for Mac)
-        testpath = home + '/Library/Containers/com.amazon.Kindle/Data/Library/Application Support/Kindle/storage/.kinf2018'
+        testpath = f'{home}/Library/Containers/com.amazon.Kindle/Data/Library/Application Support/Kindle/storage/.kinf2018'
+
         if os.path.isfile(testpath):
             kInfoFiles.append(testpath)
-            print('Found k4Mac kinf2018 file: ' + testpath)
+            print(f'Found k4Mac kinf2018 file: {testpath}')
             found = True
         # check for  .kinf2018 files
-        testpath = home + '/Library/Application Support/Kindle/storage/.kinf2018'
+        testpath = f'{home}/Library/Application Support/Kindle/storage/.kinf2018'
         if os.path.isfile(testpath):
             kInfoFiles.append(testpath)
-            print('Found k4Mac kinf2018 file: ' + testpath)
+            print(f'Found k4Mac kinf2018 file: {testpath}')
             found = True
         # check for  .kinf2011 file in new location (App Store Kindle for Mac)
-        testpath = home + '/Library/Containers/com.amazon.Kindle/Data/Library/Application Support/Kindle/storage/.kinf2011'
+        testpath = f'{home}/Library/Containers/com.amazon.Kindle/Data/Library/Application Support/Kindle/storage/.kinf2011'
+
         if os.path.isfile(testpath):
             kInfoFiles.append(testpath)
-            print('Found k4Mac kinf2011 file: ' + testpath)
+            print(f'Found k4Mac kinf2011 file: {testpath}')
             found = True
         # check for  .kinf2011 files from 1.10
-        testpath = home + '/Library/Application Support/Kindle/storage/.kinf2011'
+        testpath = f'{home}/Library/Application Support/Kindle/storage/.kinf2011'
         if os.path.isfile(testpath):
             kInfoFiles.append(testpath)
-            print('Found k4Mac kinf2011 file: ' + testpath)
+            print(f'Found k4Mac kinf2011 file: {testpath}')
             found = True
         # check for  .rainier-2.1.1-kinf files from 1.6
-        testpath = home + '/Library/Application Support/Kindle/storage/.rainier-2.1.1-kinf'
+        testpath = f'{home}/Library/Application Support/Kindle/storage/.rainier-2.1.1-kinf'
+
         if os.path.isfile(testpath):
             kInfoFiles.append(testpath)
-            print('Found k4Mac rainier file: ' + testpath)
+            print(f'Found k4Mac rainier file: {testpath}')
             found = True
         # check for  .kindle-info files from 1.4
-        testpath = home + '/Library/Application Support/Kindle/storage/.kindle-info'
+        testpath = f'{home}/Library/Application Support/Kindle/storage/.kindle-info'
         if os.path.isfile(testpath):
             kInfoFiles.append(testpath)
-            print('Found k4Mac kindle-info file: ' + testpath)
+            print(f'Found k4Mac kindle-info file: {testpath}')
             found = True
         # check for  .kindle-info file from 1.2.2
-        testpath = home + '/Library/Application Support/Amazon/Kindle/storage/.kindle-info'
+        testpath = f'{home}/Library/Application Support/Amazon/Kindle/storage/.kindle-info'
+
         if os.path.isfile(testpath):
             kInfoFiles.append(testpath)
-            print('Found k4Mac kindle-info file: ' + testpath)
+            print(f'Found k4Mac kindle-info file: {testpath}')
             found = True
         # check for  .kindle-info file from 1.0 beta 1 (27214)
-        testpath = home + '/Library/Application Support/Amazon/Kindle for Mac/storage/.kindle-info'
+        testpath = f'{home}/Library/Application Support/Amazon/Kindle for Mac/storage/.kindle-info'
+
         if os.path.isfile(testpath):
             kInfoFiles.append(testpath)
-            print('Found k4Mac kindle-info file: ' + testpath)
+            print(f'Found k4Mac kindle-info file: {testpath}')
             found = True
         if not found:
             print('No k4Mac kindle-info/rainier/kinf2011 files have been found.')

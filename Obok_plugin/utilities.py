@@ -57,7 +57,6 @@ try:
     load_translations()
 except NameError:
     debug_print("obok::utilities.py - exception when loading translations")
-    pass # load_translations() added in calibre 1.9
 
 def format_plural(number, possessive=False):
     '''
@@ -87,11 +86,7 @@ def get_icon(icon_name):
     '''
     if icon_name:
         pixmap = get_pixmap(icon_name)
-        if pixmap is None:
-            # Look in Calibre's cache for the icon
-            return QIcon(I(icon_name))
-        else:
-            return QIcon(pixmap)
+        return QIcon(I(icon_name)) if pixmap is None else QIcon(pixmap)
     return QIcon()
 
 def get_pixmap(icon_name):
@@ -147,8 +142,9 @@ def showErrorDlg(errmsg, parent, trcbk=False):
         for line in error_mess:
             error = error + str(line) + '\n'
         errmsg = errmsg + '\n\n' + error
-    return  error_dialog(parent, _(PLUGIN_NAME + ' v' + PLUGIN_VERSION),
-                _(errmsg), show=True)
+    return error_dialog(
+        parent, _(f'{PLUGIN_NAME} v{PLUGIN_VERSION}'), _(errmsg), show=True
+    )
 
 class SizePersistedDialog(QDialog):
     '''
@@ -181,10 +177,10 @@ class SizePersistedDialog(QDialog):
         pass
 
     def load_custom_pref(self, name, default=None):
-        return gprefs.get(self.unique_pref_name+':'+name, default)
+        return gprefs.get(f'{self.unique_pref_name}:{name}', default)
 
     def save_custom_pref(self, name, value):
-        gprefs[self.unique_pref_name+':'+name] = value
+        gprefs[f'{self.unique_pref_name}:{name}'] = value
 
 class ImageTitleLayout(QHBoxLayout):
     '''

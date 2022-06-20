@@ -63,7 +63,7 @@ class SafeUnbuffered:
     def __init__(self, stream):
         self.stream = stream
         self.encoding = stream.encoding
-        if self.encoding == None:
+        if self.encoding is None:
             self.encoding = "utf-8"
     def write(self, data):
         if isinstance(data, str):
@@ -126,8 +126,8 @@ def uncompress(cmpdata):
     dc = zlib.decompressobj(-15)
     data = ''
     while len(cmpdata) > 0:
-        if len(cmpdata) > _MAX_SIZE :
-            newdata = cmpdata[0:_MAX_SIZE]
+        if len(cmpdata) > _MAX_SIZE:
+            newdata = cmpdata[:_MAX_SIZE]
             cmpdata = cmpdata[_MAX_SIZE:]
         else:
             newdata = cmpdata
@@ -174,7 +174,7 @@ def encryption(infile):
         with open(infile,'rb') as infileobject:
             bookdata = infileobject.read(58)
             # Check for Zip
-            if bookdata[0:0+2] == b"PK":
+            if bookdata[: 0 + 2] == b"PK":
                 foundrights = False
                 foundencryption = False
                 inzip = zipfile.ZipFile(infile,'r')
@@ -184,7 +184,7 @@ def encryption(infile):
                 else:
                     rights = etree.fromstring(inzip.read('META-INF/rights.xml'))
                     adept = lambda tag: '{%s}%s' % (NSMAP['adept'], tag)
-                    expr = './/%s' % (adept('encryptedKey'),)
+                    expr = f".//{adept('encryptedKey')}"
                     bookkey = ''.join(rights.findtext(expr))
                     if len(bookkey) == 172:
                         encryption = "Adobe"

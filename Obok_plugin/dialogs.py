@@ -38,7 +38,6 @@ try:
     load_translations()
 except NameError:
     debug_print("obok::dialogs.py - exception when loading translations")
-    pass # load_translations() added in calibre 1.9
 
 class SelectionDialog(SizePersistedDialog):
     '''
@@ -56,8 +55,11 @@ class SelectionDialog(SizePersistedDialog):
         self.interface_action = interface_action
         self.books = books
 
-        SizePersistedDialog.__init__(self, gui, PLUGIN_NAME + 'plugin:selections dialog')
-        self.setWindowTitle(_(PLUGIN_NAME + ' v' + PLUGIN_VERSION))
+        SizePersistedDialog.__init__(
+            self, gui, f'{PLUGIN_NAME}plugin:selections dialog'
+        )
+
+        self.setWindowTitle(_(f'{PLUGIN_NAME} v{PLUGIN_VERSION}'))
         self.setMinimumWidth(300)
         self.setMinimumHeight(300)
         layout = QVBoxLayout(self)
@@ -211,10 +213,8 @@ class BookListTableWidget(QTableWidget):
 #                debug_print("BookListTableWidget:select_drm - has DRM:", row)
                 if has_drm:
                     self.selectRow(row)
-            else:
-#                debug_print("BookListTableWidget:select_drm - DRM free:", row)
-                if not has_drm:
-                    self.selectRow(row)
+            elif not has_drm:
+                self.selectRow(row)
         self.setSelectionMode(current_selection_mode)
 
 
@@ -401,8 +401,9 @@ class ResultsSummaryDialog(MessageBox):
         self.vlb.setVisible(bool(log))
 
     def show_log(self):
-        self.log_viewer = ViewLog(PLUGIN_NAME + ' v' + PLUGIN_VERSION, self.log,
-                parent=self)
+        self.log_viewer = ViewLog(
+            f'{PLUGIN_NAME} v{PLUGIN_VERSION}', self.log, parent=self
+        )
 
 
 class ReadOnlyTableWidgetItem(QTableWidgetItem):
@@ -427,7 +428,7 @@ class SeriesTableWidgetItem(ReadOnlyTableWidgetItem):
         if series:
             if series_index:
                 from calibre.ebooks.metadata import fmt_sidx
-                display = '%s [%s]' % (series, fmt_sidx(series_index))
+                display = f'{series} [{fmt_sidx(series_index)}]'
                 self.sortKey = '%s%04d' % (series, series_index)
             else:
                 display = series

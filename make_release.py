@@ -28,13 +28,13 @@ def make_release(version):
     os.mkdir(RELEASE_DIR)
     shutil.make_archive(DEDRM_SRC_DIR, 'zip', DEDRM_SRC_DIR)
     shutil.make_archive(OBOK_SRC_DIR, 'zip', OBOK_SRC_DIR)
-    shutil.move(DEDRM_SRC_DIR+'.zip', RELEASE_DIR)
-    shutil.move(OBOK_SRC_DIR+'.zip', RELEASE_DIR)
+    shutil.move(f'{DEDRM_SRC_DIR}.zip', RELEASE_DIR)
+    shutil.move(f'{OBOK_SRC_DIR}.zip', RELEASE_DIR)
     shutil.copy(DEDRM_README, RELEASE_DIR)
     shutil.copy(OBOK_README, RELEASE_DIR)
     shutil.copy("ReadMe_Overview.txt", RELEASE_DIR)
 
-    release_name = 'DeDRM_tools_{}'.format(version)
+    release_name = f'DeDRM_tools_{version}'
     result = shutil.make_archive(release_name, 'zip', RELEASE_DIR)
     try:
         shutil.rmtree(RELEASE_DIR)
@@ -48,6 +48,6 @@ if __name__ == '__main__':
     try:
         version = sys.argv[1]
     except IndexError:
-        raise SystemExit('Usage: {} version'.format(__file__))
+        raise SystemExit(f'Usage: {__file__} version')
 
     print(make_release(version))

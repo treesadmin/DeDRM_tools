@@ -61,15 +61,14 @@ class fixZip:
         leninfo = self.bzf.read(2)
         local_name_length, = unpack('<H', leninfo)
         self.bzf.seek(local_header_offset + _FILENAME_OFFSET)
-        local_name = self.bzf.read(local_name_length)
-        return local_name
+        return self.bzf.read(local_name_length)
 
     def uncompress(self, cmpdata):
         dc = zlib.decompressobj(-15)
         data = b''
         while len(cmpdata) > 0:
-            if len(cmpdata) > _MAX_SIZE :
-                newdata = cmpdata[0:_MAX_SIZE]
+            if len(cmpdata) > _MAX_SIZE:
+                newdata = cmpdata[:_MAX_SIZE]
                 cmpdata = cmpdata[_MAX_SIZE:]
             else:
                 newdata = cmpdata

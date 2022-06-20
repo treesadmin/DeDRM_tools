@@ -49,9 +49,7 @@ class DeDRM_Prefs():
             self.dedrmprefs['serials'] = []
 
     def __getitem__(self,kind = None):
-        if kind is not None:
-            return self.dedrmprefs[kind]
-        return self.dedrmprefs
+        return self.dedrmprefs[kind] if kind is not None else self.dedrmprefs
 
     def set(self, kind, value):
         self.dedrmprefs[kind] = value
@@ -74,7 +72,6 @@ class DeDRM_Prefs():
                 return (True, newname)
         except:
             traceback.print_exc()
-            pass
         return (False, keyname)
 
     def addvaluetoprefs(self, prefkind, prefsvalue):
@@ -104,7 +101,6 @@ def convertprefs(always = False):
             except Exception as e:
                 traceback.print_exc()
                 print(e.args[0])
-                pass
         return userkeys
 
     def parseeReaderString(keystuff):
@@ -121,7 +117,6 @@ def convertprefs(always = False):
             except Exception as e:
                 traceback.print_exc()
                 print(e.args[0])
-                pass
         return userkeys
 
     def parseKindleString(keystuff):
@@ -150,7 +145,6 @@ def convertprefs(always = False):
                 userkeys.append([key,value])
             except:
                 traceback.print_exc()
-                pass
         return userkeys
 
     dedrmprefs = DeDRM_Prefs()

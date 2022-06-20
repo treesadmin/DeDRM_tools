@@ -48,7 +48,7 @@ class SafeUnbuffered:
     def __init__(self, stream):
         self.stream = stream
         self.encoding = stream.encoding
-        if self.encoding == None:
+        if self.encoding is None:
             self.encoding = "utf-8"
     def write(self, data):
         if isinstance(data, str):
@@ -143,7 +143,7 @@ if iswindows:
         class AES(object):
             def __init__(self, userkey):
                 self._blocksize = len(userkey)
-                if (self._blocksize != 16) and (self._blocksize != 24) and (self._blocksize != 32) :
+                if self._blocksize not in [16, 24, 32]:
                     raise ADEPTError('AES improper key used')
                 key = self._key = AES_KEY()
                 rv = AES_set_decrypt_key(userkey, len(userkey) * 8, key)
@@ -366,7 +366,7 @@ if iswindows:
             plkroot = winreg.OpenKey(cuser, PRIVATE_LICENCE_KEY_PATH)
         except WindowsError:
             raise ADEPTError("Could not locate ADE activation")
-        for i in range(0, 16):
+        for i in range(16):
             try:
                 plkparent = winreg.OpenKey(plkroot, "%04d" % (i,))
             except WindowsError:
@@ -374,7 +374,7 @@ if iswindows:
             ktype = winreg.QueryValueEx(plkparent, None)[0]
             if ktype != 'credentials':
                 continue
-            for j in range(0, 16):
+            for j in range(16):
                 try:
                     plkkey = winreg.OpenKey(plkparent, "%04d" % (j,))
                 except WindowsError:
@@ -389,7 +389,7 @@ if iswindows:
                 userkey = userkey[26:-ord(userkey[-1:])]
                 #print "found key:",userkey.encode('hex')
                 keys.append(userkey)
-        if len(keys) == 0:
+        if not keys:
             raise ADEPTError('Could not locate privateLicenseKey')
         print("Found {0:d} keys".format(len(keys)))
         return keys
@@ -430,7 +430,7 @@ elif isosx:
             raise ADEPTError("Could not find ADE activation.dat file.")
         tree = etree.parse(actpath)
         adept = lambda tag: '{%s}%s' % (NSMAP['adept'], tag)
-        expr = '//%s/%s' % (adept('credentials'), adept('privateLicenseKey'))
+        expr = f"//{adept('credentials')}/{adept('privateLicenseKey')}"
         userkey = tree.findtext(expr)
         userkey = b64decode(userkey)
         userkey = userkey[26:]
@@ -439,7 +439,6 @@ elif isosx:
 else:
     def adeptkeys():
         raise ADEPTError("This script only supports Windows and Mac OS X.")
-        return []
 
 # interface for Python DeDRM
 def getkey(outpath):

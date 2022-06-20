@@ -49,7 +49,7 @@ class SafeUnbuffered:
     def __init__(self, stream):
         self.stream = stream
         self.encoding = stream.encoding
-        if self.encoding == None:
+        if self.encoding is None:
             self.encoding = "utf-8"
     def write(self, data):
         if isinstance(data,str):
@@ -142,9 +142,8 @@ def _load_crypto_libcrypto():
     class AES(object):
         def __init__(self, userkey):
             self._blocksize = len(userkey)
-            if (self._blocksize != 16) and (self._blocksize != 24) and (self._blocksize != 32) :
+            if self._blocksize not in [16, 24, 32]:
                 raise IGNOBLEError('AES improper key used')
-                return
             key = self._key = AES_KEY()
             rv = AES_set_decrypt_key(userkey, len(userkey) * 8, key)
             if rv < 0:
@@ -197,8 +196,7 @@ class Decryptor(object):
         self._aes = AES(bookkey)
         encryption = etree.fromstring(encryption)
         self._encrypted = encrypted = set()
-        expr = './%s/%s/%s' % (enc('EncryptedData'), enc('CipherData'),
-                               enc('CipherReference'))
+        expr = f"./{enc('EncryptedData')}/{enc('CipherData')}/{enc('CipherReference')}"
         for elem in encryption.findall(expr):
             path = elem.get('URI', None)
             if path is not None:
@@ -208,8 +206,7 @@ class Decryptor(object):
     def decompress(self, bytes):
         dc = zlib.decompressobj(-15)
         bytes = dc.decompress(bytes)
-        ex = dc.decompress(b'Z') + dc.flush()
-        if ex:
+        if ex := dc.decompress(b'Z') + dc.flush():
             bytes = bytes + ex
         return bytes
 
@@ -230,7 +227,7 @@ def ignobleBook(inpath):
         try:
             rights = etree.fromstring(inf.read('META-INF/rights.xml'))
             adept = lambda tag: '{%s}%s' % (NSMAP['adept'], tag)
-            expr = './/%s' % (adept('encryptedKey'),)
+            expr = f".//{adept('encryptedKey')}"
             bookkey = ''.join(rights.findtext(expr))
             if len(bookkey) == 64:
                 return True
@@ -255,7 +252,7 @@ def decryptBook(keyb64, inpath, outpath):
         try:
             rights = etree.fromstring(inf.read('META-INF/rights.xml'))
             adept = lambda tag: '{%s}%s' % (NSMAP['adept'], tag)
-            expr = './/%s' % (adept('encryptedKey'),)
+            expr = f".//{adept('encryptedKey')}"
             bookkey = ''.join(rights.findtext(expr))
             if len(bookkey) != 64:
                 print("{0:s} is not a secure Barnes & Noble ePub.".format(os.path.basename(inpath)))
@@ -368,32 +365,36 @@ def gui_main():
             button.pack(side=tkinter.constants.RIGHT)
 
         def get_keypath(self):
-            keypath = tkinter.filedialog.askopenfilename(
-                parent=None, title="Select Barnes & Noble \'.b64\' key file",
+            if keypath := tkinter.filedialog.askopenfilename(
+                parent=None,
+                title="Select Barnes & Noble \'.b64\' key file",
                 defaultextension=".b64",
-                filetypes=[('base64-encoded files', '.b64'),
-                           ('All Files', '.*')])
-            if keypath:
+                filetypes=[('base64-encoded files', '.b64'), ('All Files', '.*')],
+            ):
                 keypath = os.path.normpath(keypath)
                 self.keypath.delete(0, tkinter.constants.END)
                 self.keypath.insert(0, keypath)
             return
 
         def get_inpath(self):
-            inpath = tkinter.filedialog.askopenfilename(
-                parent=None, title="Select B&N-encrypted ePub file to decrypt",
-                defaultextension=".epub", filetypes=[('ePub files', '.epub')])
-            if inpath:
+            if inpath := tkinter.filedialog.askopenfilename(
+                parent=None,
+                title="Select B&N-encrypted ePub file to decrypt",
+                defaultextension=".epub",
+                filetypes=[('ePub files', '.epub')],
+            ):
                 inpath = os.path.normpath(inpath)
                 self.inpath.delete(0, tkinter.constants.END)
                 self.inpath.insert(0, inpath)
             return
 
         def get_outpath(self):
-            outpath = tkinter.filedialog.asksaveasfilename(
-                parent=None, title="Select unencrypted ePub file to produce",
-                defaultextension=".epub", filetypes=[('ePub files', '.epub')])
-            if outpath:
+            if outpath := tkinter.filedialog.asksaveasfilename(
+                parent=None,
+                title="Select unencrypted ePub file to produce",
+                defaultextension=".epub",
+                filetypes=[('ePub files', '.epub')],
+            ):
                 outpath = os.path.normpath(outpath)
                 self.outpath.delete(0, tkinter.constants.END)
                 self.outpath.insert(0, outpath)

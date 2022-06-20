@@ -83,10 +83,10 @@ Decrypt DRMed ebooks.
 """
 
 PLUGIN_NAME = "DeDRM"
-PLUGIN_VERSION_TUPLE = tuple([int(x) for x in __version__.split(".")])
+PLUGIN_VERSION_TUPLE = tuple(int(x) for x in __version__.split("."))
 PLUGIN_VERSION = ".".join([str(x)for x in PLUGIN_VERSION_TUPLE])
 # Include an html helpfile in the plugin's zipfile with the following name.
-RESOURCE_NAME = PLUGIN_NAME + '_Help.htm'
+RESOURCE_NAME = f'{PLUGIN_NAME}_Help.htm'
 
 import codecs
 import sys, os, re
@@ -111,7 +111,7 @@ class SafeUnbuffered:
     def __init__(self, stream):
         self.stream = stream
         self.encoding = stream.encoding
-        if self.encoding == None:
+        if self.encoding is None:
             self.encoding = "utf-8"
     def write(self, data):
         if isinstance(data,str):
@@ -187,8 +187,6 @@ class DeDRM(FileTypePlugin):
                     except:
                         print("{0} v{1}: Exception when copying needed library files".format(PLUGIN_NAME, PLUGIN_VERSION))
                         traceback.print_exc()
-                        pass
-
                 # convert old preferences, if necessary.
                 from calibre_plugins.dedrm.prefs import convertprefs
                 convertprefs()
@@ -222,7 +220,7 @@ class DeDRM(FileTypePlugin):
 
 
         #check the book
-        if  ignobleepub.ignobleBook(inf.name):
+        if ignobleepub.ignobleBook(inf.name):
             print("{0} v{1}: “{2}” is a secure Barnes & Noble ePub".format(PLUGIN_NAME, PLUGIN_VERSION, os.path.basename(path_to_ebook)))
 
             # Attempt to decrypt epub with each encryption key (generated or provided).
@@ -274,9 +272,9 @@ class DeDRM(FileTypePlugin):
                 if keyvalue not in dedrmprefs['bandnkeys'].values():
                     newkeys.append(keyvalue)
 
-            if len(newkeys) > 0:
+            if newkeys:
                 try:
-                    for i,userkey in enumerate(newkeys):
+                    for userkey in newkeys:
                         print("{0} v{1}: Trying a new default key".format(PLUGIN_NAME, PLUGIN_VERSION))
 
                         of = self.temporary_file(".epub")
@@ -373,9 +371,9 @@ class DeDRM(FileTypePlugin):
                 if codecs.encode(keyvalue, 'hex').decode('ascii') not in dedrmprefs['adeptkeys'].values():
                     newkeys.append(keyvalue)
 
-            if len(newkeys) > 0:
+            if newkeys:
                 try:
-                    for i,userkey in enumerate(newkeys):
+                    for userkey in newkeys:
                         print("{0} v{1}: Trying a new default key".format(PLUGIN_NAME, PLUGIN_VERSION))
                         of = self.temporary_file(".epub")
 
@@ -408,8 +406,6 @@ class DeDRM(FileTypePlugin):
                 except Exception as e:
                     print("{0} v{1}: Unexpected Exception trying a new default key after {2:.1f} seconds".format(PLUGIN_NAME, PLUGIN_VERSION, time.time()-self.starttime))
                     traceback.print_exc()
-                    pass
-
             # Something went wrong with decryption.
             print("{0} v{1}: Ultimately failed to decrypt after {2:.1f} seconds. Read the FAQs at Harper's repository: https://github.com/apprenticeharper/DeDRM_tools/blob/master/FAQs.md".format(PLUGIN_NAME, PLUGIN_VERSION,time.time()-self.starttime))
             raise DeDRMError("{0} v{1}: Ultimately failed to decrypt after {2:.1f} seconds. Read the FAQs at Harper's repository: https://github.com/apprenticeharper/DeDRM_tools/blob/master/FAQs.md".format(PLUGIN_NAME, PLUGIN_VERSION,time.time()-self.starttime))
@@ -476,9 +472,9 @@ class DeDRM(FileTypePlugin):
             if codecs.encode(keyvalue,'hex') not in dedrmprefs['adeptkeys'].values():
                 newkeys.append(keyvalue)
 
-        if len(newkeys) > 0:
+        if newkeys:
             try:
-                for i,userkey in enumerate(newkeys):
+                for userkey in newkeys:
                     print("{0} v{1}: Trying a new default key".format(PLUGIN_NAME, PLUGIN_VERSION))
                     of = self.temporary_file(".pdf")
 
@@ -558,14 +554,11 @@ class DeDRM(FileTypePlugin):
             except:
                 print("{0} v{1}: Exception when getting default Kindle Key after {2:.1f} seconds".format(PLUGIN_NAME, PLUGIN_VERSION, time.time()-self.starttime))
                 traceback.print_exc()
-                pass
-
-            newkeys = {}
-            for i,keyvalue in enumerate(defaultkeys):
-                keyname = "default_key_{0:d}".format(i+1)
-                if keyvalue not in dedrmprefs['kindlekeys'].values():
-                    newkeys[keyname] = keyvalue
-            if len(newkeys) > 0:
+            if newkeys := {
+                "default_key_{0:d}".format(i + 1): keyvalue
+                for i, keyvalue in enumerate(defaultkeys)
+                if keyvalue not in dedrmprefs['kindlekeys'].values()
+            }:
                 print("{0} v{1}: Found {2} new {3}".format(PLUGIN_NAME, PLUGIN_VERSION, len(newkeys), "key" if len(newkeys)==1 else "keys"))
                 try:
                     book = k4mobidedrm.GetDecryptedBook(path_to_ebook,list(newkeys.items()),[],[],[],self.starttime)
@@ -634,11 +627,9 @@ class DeDRM(FileTypePlugin):
         elif booktype == 'pdb':
             # eReader
             decrypted_ebook = self.eReaderDecrypt(path_to_ebook)
-            pass
         elif booktype == 'pdf':
             # Adobe Adept PDF (hopefully)
             decrypted_ebook = self.PDFDecrypt(path_to_ebook)
-            pass
         elif booktype == 'epub':
             # Adobe Adept or B&N ePub
             decrypted_ebook = self.ePubDecrypt(path_to_ebook)

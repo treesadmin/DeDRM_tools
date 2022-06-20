@@ -132,12 +132,9 @@ class DocParser(object):
 
 
     # find tag in doc if within pos to end inclusive
-    def findinDoc(self, tagpath, pos, end) :
+    def findinDoc(self, tagpath, pos, end):
         result = None
-        if end == -1 :
-            end = self.docSize
-        else:
-            end = min(self.docSize, end)
+        end = self.docSize if end == -1 else min(self.docSize, end)
         foundat = -1
         for j in range(pos, end):
             item = self.docList[j]
@@ -193,20 +190,20 @@ class DocParser(object):
         # after
 
         # also some class names have spaces in them so need to convert to dashes
-        if nclass != None :
+        if nclass != None:
             nclass = nclass.replace(b' ',b'-')
             classres = b''
             nclass = nclass.lower()
             nclass = b'cl-' + nclass
             baseclass = b''
             # graphic is the base class for captions
-            if nclass.find(b'cl-cap-') >=0 :
+            if nclass.find(b'cl-cap-') >=0:
                 classres = b'graphic' + b' '
-            else :
+            else:
                 # strip to find baseclass
                 p = nclass.find(b'_')
-                if p > 0 :
-                    baseclass = nclass[0:p]
+                if p > 0:
+                    baseclass = nclass[:p]
                     if baseclass in self.classList:
                         classres += baseclass + b' '
             classres += nclass
@@ -281,11 +278,11 @@ class DocParser(object):
         # first check for the  basic - all words paragraph
         (pos, sfirst) = self.findinDoc(b'paragraph.firstWord',start,end)
         (pos, slast) = self.findinDoc(b'paragraph.lastWord',start,end)
-        if (sfirst != None) and (slast != None) :
+        if (sfirst != None) and (slast != None):
             first = int(sfirst)
             last = int(slast)
 
-            makeImage = (regtype == b'vertical') or (regtype == b'table')
+            makeImage = regtype in [b'vertical', b'table']
             makeImage = makeImage or (extraglyphs != None)
             if self.fixedimage:
                 makeImage = makeImage or (regtype == b'fixed')
@@ -300,16 +297,11 @@ class DocParser(object):
 
             makeImage = makeImage & (len(gidList) > 0)
 
-            if not makeImage :
+            if not makeImage:
                 # standard all word paragraph
-                for wordnum in range(first, last):
-                    result.append(('ocr', wordnum))
+                result.extend(('ocr', wordnum) for wordnum in range(first, last))
                 return pclass, result
 
-            # convert paragraph to svg image
-            # translate first and last word into first and last glyphs
-            # and generate inline image and include it
-            glyphList = []
             firstglyphList = self.getData(b'word.firstGlyph',0,-1)
             gidList = self.getData(b'info.glyph.glyphID',0,-1)
             firstGlyph = firstglyphList[first]
@@ -322,12 +314,10 @@ class DocParser(object):
             # by reverting to text based paragraph
             if firstGlyph >= lastGlyph:
                 # revert to standard text based paragraph
-                for wordnum in range(first, last):
-                    result.append(('ocr', wordnum))
+                result.extend(('ocr', wordnum) for wordnum in range(first, last))
                 return pclass, result
 
-            for glyphnum in range(firstGlyph, lastGlyph):
-                glyphList.append(glyphnum)
+            glyphList = list(range(firstGlyph, lastGlyph))
             # include any extratokens if they exist
             (pos, sfg) = self.findinDoc(b'extratokens.firstGlyph',start,end)
             (pos, slg) = self.findinDoc(b'extratokens.lastGlyph',start,end)
@@ -367,11 +357,11 @@ class DocParser(object):
 
         word_semantic_type = ''
 
-        while (line < end) :
+        while (line < end):
 
             (name, argres) = self.lineinDoc(line)
 
-            if name.endswith(b'span.firstWord') :
+            if name.endswith(b'span.firstWord'):
                 sp_first = int(argres)
 
             elif name.endswith(b'span.lastWord') :
@@ -400,11 +390,11 @@ class DocParser(object):
                     pass
 
             elif name.endswith(b'word.img.src'):
-                result.append(('img' + word_class, int(argres)))
+                result.append((f'img{word_class}', int(argres)))
                 word_class = ''
 
             elif name.endswith(b'region.img.src'):
-                result.append(('img' + word_class, int(argres)))
+                result.append((f'img{word_class}', int(argres)))
 
             if (sp_first != -1) and (sp_last != -1):
                 for wordnum in range(sp_first, sp_last):
@@ -413,9 +403,7 @@ class DocParser(object):
                 sp_last = -1
 
             if (gl_first != -1) and (gl_last != -1):
-                glyphList = []
-                for glyphnum in range(gl_first, gl_last):
-                    glyphList.append(glyphnum)
+                glyphList = list(range(gl_first, gl_last))
                 num = self.svgcount
                 self.glyphs_to_image(glyphList)
                 self.svgcount += 1
@@ -434,20 +422,17 @@ class DocParser(object):
         return pclass, result
 
 
-    def buildParagraph(self, pclass, pdesc, type, regtype) :
+    def buildParagraph(self, pclass, pdesc, type, regtype):
         parares = ''
         sep =''
 
-        classres = ''
-        if pclass :
-            classres = ' class="' + pclass.decode('utf-8') + '"'
-
-        br_lb = (regtype == 'fixed') or (regtype == 'chapterheading') or (regtype == 'vertical')
+        classres = ' class="' + pclass.decode('utf-8') + '"' if pclass else ''
+        br_lb = regtype in ['fixed', 'chapterheading', 'vertical']
 
         handle_links = len(self.link_id) > 0
 
-        if (type == 'full') or (type == 'begin') :
-            parares += '<p' + classres + '>'
+        if type in ['full', 'begin']:
+            parares += f'<p{classres}>'
 
         if (type == 'end'):
             parares += ' '
@@ -456,11 +441,11 @@ class DocParser(object):
 
         cnt = len(pdesc)
 
-        for j in range( 0, cnt) :
+        for j in range(cnt):
 
             (wtype, num) = pdesc[j]
 
-            if wtype == 'ocr' :
+            if wtype == 'ocr':
                 try:
                     word = self.ocrtext[num]
                 except:
@@ -475,22 +460,21 @@ class DocParser(object):
                         title = self.link_title[link-1]
                         if (title == b"") or (parares.rfind(title.decode('utf-8')) < 0):
                             title=parares[lstart:].encode('utf-8')
-                        if linktype == 'external' :
+                        if linktype == 'external':
                             linkhref = self.link_href[link-1]
                             linkhtml = '<a href="%s">' % linkhref
-                        else :
-                            if len(self.link_page) >= link :
-                                ptarget = self.link_page[link-1] - 1
-                                linkhtml = '<a href="#page%04d">' % ptarget
-                            else :
-                                # just link to the current page
-                                linkhtml = '<a href="#' + self.id + '">'
+                        elif len(self.link_page) >= link:
+                            ptarget = self.link_page[link-1] - 1
+                            linkhtml = '<a href="#page%04d">' % ptarget
+                        else:
+                            # just link to the current page
+                            linkhtml = '<a href="#' + self.id + '">'
                         linkhtml += title.decode('utf-8')
                         linkhtml += '</a>'
                         pos = parares.rfind(title.decode('utf-8'))
                         if pos >= 0:
-                            parares = parares[0:pos] + linkhtml + parares[pos+len(title):]
-                        else :
+                            parares = parares[:pos] + linkhtml + parares[pos+len(title):]
+                        else:
                             parares += linkhtml
                         lstart = len(parares)
                         if word == b'_link_' : word = b''
@@ -500,16 +484,13 @@ class DocParser(object):
                 if word == b'_lb_':
                     if ((num-1) in self.dehyphen_rootid ) or handle_links:
                         word = b''
-                        sep = ''
-                    elif br_lb :
+                    elif br_lb:
                         word = b'<br />\n'
-                        sep = ''
-                    else :
+                    else:
                         word = b'\n'
-                        sep = ''
-
-                if num in self.dehyphen_rootid :
-                    word = word[0:-1]
+                    sep = ''
+                if num in self.dehyphen_rootid:
+                    word = word[:-1]
                     sep = ''
 
                 parares += word.decode('utf-8') + sep
@@ -531,8 +512,9 @@ class DocParser(object):
                 parares += '_%04d.svg" alt="" />' % num
                 parares += sep
 
-        if len(sep) > 0 : parares = parares[0:-1]
-        if (type == 'full') or (type == 'end') :
+        if len(sep) > 0:
+            parares = parares[:-1]
+        if type in ['full', 'end']:
             parares += '</p>'
         return parares
 

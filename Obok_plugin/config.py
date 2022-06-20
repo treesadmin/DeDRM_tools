@@ -21,7 +21,6 @@ try:
     load_translations()
 except NameError:
     debug_print("obok::config.py - exception when loading translations")
-    pass # load_translations() added in calibre 1.9
 
 class ConfigWidget(QWidget):
     def __init__(self, plugin_action):

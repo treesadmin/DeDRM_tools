@@ -170,8 +170,7 @@ def AskFolder(
                 user32.SendMessageW(hwnd, BFFM_SETOKTEXT, 0, label)
             if cancelButtonLabel:
                 label = str(cancelButtonLabel, errors='replace')
-                cancelButton = user32.GetDlgItem(hwnd, IDCANCEL)
-                if cancelButton:
+                if cancelButton := user32.GetDlgItem(hwnd, IDCANCEL):
                     user32.SetWindowTextW(cancelButton, label)
             if windowTitle:
                 title = str(windowTitle, errors='replace')

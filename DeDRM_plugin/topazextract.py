@@ -29,7 +29,7 @@ class SafeUnbuffered:
     def __init__(self, stream):
         self.stream = stream
         self.encoding = stream.encoding
-        if self.encoding == None:
+        if self.encoding is None:
             self.encoding = "utf-8"
     def write(self, data):
         if isinstance(data, str):
@@ -133,7 +133,7 @@ def bookReadEncodedNumber(fo):
 # Get a length prefixed string from file
 def bookReadString(fo):
     stringLength = bookReadEncodedNumber(fo)
-    return unpack(str(stringLength)+'s',fo.read(stringLength))[0]
+    return unpack(f'{str(stringLength)}s', fo.read(stringLength))[0]
 
 #
 # crypto routines
@@ -186,7 +186,7 @@ def decryptDkeyRecords(data,PID):
     nbKeyRecords = data[0]
     records = []
     data = data[1:]
-    for i in range (0,nbKeyRecords):
+    for _ in range(nbKeyRecords):
         length = data[0]
         try:
             key = decryptDkeyRecord(data[1:length+1],PID)
@@ -194,7 +194,7 @@ def decryptDkeyRecords(data,PID):
         except DrmException:
             pass
         data = data[1+length:]
-    if len(records) == 0:
+    if not records:
         raise DrmException("BookKey Not Found")
     return records
 
@@ -220,10 +220,14 @@ class TopazBook:
             # [[offset,decompressedLength,compressedLength],...]
             nbValues = bookReadEncodedNumber(self.fo)
             if debug: print("%d records in header " % nbValues, end=' ')
-            values = []
-            for i in range (0,nbValues):
-                values.append([bookReadEncodedNumber(self.fo),bookReadEncodedNumber(self.fo),bookReadEncodedNumber(self.fo)])
-            return values
+            return [
+                [
+                    bookReadEncodedNumber(self.fo),
+                    bookReadEncodedNumber(self.fo),
+                    bookReadEncodedNumber(self.fo),
+                ]
+                for _ in range(nbValues)
+            ]
         def parseTopazHeaderRecord():
             # Read and parse one header record at the current book file position and return the associated data
             # [[offset,decompressedLength,compressedLength],...]
@@ -251,7 +255,7 @@ class TopazBook:
         flags = ord(self.fo.read(1))
         nbRecords = ord(self.fo.read(1))
         if debug: print("Metadata Records: %d" % nbRecords)
-        for i in range (0,nbRecords) :
+        for _ in range(nbRecords):
             keyval = bookReadString(self.fo)
             content = bookReadString(self.fo)
             if debug: print(keyval)
@@ -269,9 +273,7 @@ class TopazBook:
         return keysRecord, keysRecordRecord
 
     def getBookTitle(self):
-        title = b''
-        if b'Title' in self.bookMetadata:
-            title = self.bookMetadata[b'Title']
+        title = self.bookMetadata[b'Title'] if b'Title' in self.bookMetadata else b''
         return title.decode('utf-8')
 
     def setBookKey(self, key):
@@ -344,7 +346,7 @@ class TopazBook:
         bookKey = None
         for pid in pidlst:
             # use 8 digit pids here
-            pid = pid[0:8]
+            pid = pid[:8]
             print("Trying: {0}".format(pid))
             bookKeys = []
             data = keydata
@@ -401,7 +403,7 @@ class TopazBook:
                 if name == b'img': ext = ".jpg"
                 if name == b'color' : ext = ".jpg"
                 print("Processing Section: {0}\n. . .".format(name.decode('utf-8')), end=' ')
-                for index in range (0,len(self.bookHeaderRecords[name])) :
+                for index in range(len(self.bookHeaderRecords[name])):
                     fname = "{0}{1:04d}{2}".format(name.decode('utf-8'),index,ext)
                     destdir = outdir
                     if name == b'img':
@@ -483,15 +485,15 @@ def cli_main():
 
     for o, a in opts:
         if o == '-k':
-            if a == None :
+            if a is None:
                 raise DrmException("Invalid parameter for -k")
             kDatabaseFiles.append(a)
         if o == '-p':
-            if a == None :
+            if a is None:
                 raise DrmException("Invalid parameter for -p")
             pids = a.split(',')
         if o == '-s':
-            if a == None :
+            if a is None:
                 raise DrmException("Invalid parameter for -s")
             serials = [serial.replace(" ","") for serial in a.split(',')]
 
@@ -508,11 +510,11 @@ def cli_main():
         tb.processBook(pids)
 
         print("   Creating HTML ZIP Archive")
-        zipname = os.path.join(outdir, bookname + "_nodrm.htmlz")
+        zipname = os.path.join(outdir, f"{bookname}_nodrm.htmlz")
         tb.getFile(zipname)
 
         print("   Creating SVG ZIP Archive")
-        zipname = os.path.join(outdir, bookname + "_SVG.zip")
+        zipname = os.path.join(outdir, f"{bookname}_SVG.zip")
         tb.getSVGZip(zipname)
 
         # removing internal temporary directory of pieces
